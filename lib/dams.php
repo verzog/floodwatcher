@@ -55,11 +55,18 @@ function sfw_dam_rise(array $points, int $now, int $hours): ?float
 function sfw_dams_status(array $cfg, array $items, array $byid, array $seq, int $now): array
 {
     $fresh = static fn($t): bool => is_int($t) && $t >= $now - 3600 * (int) $cfg['stale_hours'];
+    // Seqwater's release update: flood releases, operational releases (e.g. Somerset into Lake
+    // Wivenhoe, not downstream), and ungated dams spilling.
     $releasing = [];
+    $operational = [];
+    $spilling = [];
     if ($fresh($seq['releases']['fetched'] ?? null)) {
-        foreach ($seq['releases']['dams'] ?? [] as $name) {
-            $releasing[strtolower((string) $name)] = true;
+        foreach (['dams' => &$releasing, 'operational' => &$operational, 'spilling' => &$spilling] as $field => &$set) {
+            foreach ($seq['releases'][$field] ?? [] as $name) {
+                $set[strtolower((string) $name)] = true;
+            }
         }
+        unset($set);
     }
     $out = [];
     foreach ($cfg['list'] as $d) {
@@ -95,9 +102,18 @@ function sfw_dams_status(array $cfg, array $items, array $byid, array $seq, int 
                         ? sprintf(' (%.1f%% of flood storage, Seqwater)', $floodpct) : ' (Seqwater)');
             }
         }
-        if (isset($releasing[strtolower($d['seqwater'])])) {
+        $sname = strtolower($d['seqwater']);
+        if (isset($spilling[$sname])) {
+            $raise('full');
+            $why[] = 'spilling (Seqwater release update)';
+        }
+        if (isset($operational[$sname])) {
+            $raise('normal');
+            $why[] = 'operational releases (Seqwater release update)';
+        }
+        if (isset($releasing[$sname])) {
             $raise('releasing');
-            $why[] = 'flood releases (Seqwater notice)';
+            $why[] = 'flood releases (Seqwater release update)';
         }
 
         // The lake gauge.
@@ -129,12 +145,14 @@ function sfw_dams_status(array $cfg, array $items, array $byid, array $seq, int 
             'lon'         => (float) $d['lon'],
             'node'        => $d['node'] ?? null,
             'down'        => $d['down'] ?? null,
+            'into'        => $d['into'] ?? null,
             'state'       => $state,
             'why'         => array_values(array_unique($why)),
             'pct'         => $pct,
             'flood_pct'   => $floodpct,
             'comment'     => $comment,
             'observed'    => $sq['observed'] ?? null,
+            'updated'     => $seq['releases']['updated'] ?? null,
             'level'       => $level,
             'level_id'    => $d['level'],
             'level_trend' => $lake['trend'] ?? null,

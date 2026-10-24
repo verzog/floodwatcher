@@ -44,6 +44,12 @@ function sfw_dams_text(DOMNode $node): string
 /**
  * Parse the dam levels page: one entry per dam we know, keyed by lower-case Seqwater name.
  *
+ * The page has a main table (Dam | Full supply volume | Current volume | % Full | Latest
+ * observation | Comment) and, for Wivenhoe and Somerset, a flood storage table (Dam | Total
+ * Flood Storage Volume | Percentage of Flood Storage Volume in use | ... available). Columns are
+ * found by their headings. A row belongs to a dam only if it starts with the dam's name (the
+ * Somerset row's note mentions Wivenhoe).
+ *
  * @param array<int, string> $names The Seqwater names of our dams.
  * @return array<string, array<string, mixed>>
  */
@@ -55,54 +61,71 @@ function sfw_dams_parse_levels(string $html, array $names): array
     libxml_clear_errors();
     $xp = new DOMXPath($doc);
     $found = [];
-    foreach ($xp->query('//tr') ?: [] as $tr) {
-        $cells = [];
-        foreach ($xp->query('./th|./td', $tr) ?: [] as $cell) {
-            $cells[] = sfw_dams_text($cell);
-        }
-        if (count($cells) < 3) {
-            continue;
-        }
-        $row = implode(' | ', $cells);
-        foreach ($names as $name) {
-            $key = strtolower($name);
-            if (isset($found[$key]) || stripos($cells[0], $name) === false) {
+    foreach ($xp->query('//table') ?: [] as $table) {
+        $cols = null;
+        foreach ($xp->query('.//tr', $table) ?: [] as $tr) {
+            $cells = [];
+            foreach ($xp->query('./th|./td', $tr) ?: [] as $cell) {
+                $cells[] = sfw_dams_text($cell);
+            }
+            if ($cols === null) {
+                // The heading row: which column holds what.
+                $cols = [];
+                foreach ($cells as $i => $h) {
+                    $h = strtolower($h);
+                    $kind = match (true) {
+                        str_contains($h, 'in use')               => 'flood_storage_pct',
+                        str_contains($h, '% full')               => 'pct',
+                        str_contains($h, 'latest observation')   => 'observed',
+                        $h === 'comment' || str_contains($h, 'comment') => 'comment',
+                        default                                  => null,
+                    };
+                    if ($kind !== null) {
+                        $cols[$kind] = $i;
+                    }
+                }
                 continue;
             }
-            $entry = ['pct' => null, 'flood_storage_pct' => null, 'observed' => null, 'comment' => null];
-            foreach ($cells as $i => $c) {
-                if ($i > 0 && $entry['pct'] === null && preg_match('/^(\d{1,3}(?:\.\d+)?)\s*%$/', $c, $m)) {
-                    $entry['pct'] = (float) $m[1];
-                }
-                if ($entry['observed'] === null && preg_match('#\d{1,2}:\d{2}\s*[ap]m\s+\d{1,2}/\d{1,2}/\d{4}#i', $c, $m)) {
-                    $entry['observed'] = $m[0];
-                }
+            if (!$cols || $cells === []) {
+                continue;
             }
-            if (preg_match('/flood storage[^|%]*?(\d{1,3}(?:\.\d+)?)\s*%/i', $row, $m)
-                || preg_match('/(\d{1,3}(?:\.\d+)?)\s*%[^|]*flood storage/i', $row, $m)) {
-                $entry['flood_storage_pct'] = (float) $m[1];
-            }
-            // The comment: the last cell that isn't a number, percentage or time.
-            for ($i = count($cells) - 1; $i > 0; $i--) {
-                $c = $cells[$i];
-                if ($c !== '' && !preg_match('#^[\d.,\s%]+$#', $c) && !preg_match('#^\d{1,2}:\d{2}\s*[ap]m#i', $c)) {
-                    $entry['comment'] = mb_substr($c, 0, 200);
-                    break;
+            foreach ($names as $name) {
+                if (!preg_match('/^' . preg_quote($name, '/') . '\b/i', $cells[0])) {
+                    continue;
                 }
-            }
-            if ($entry['pct'] !== null) {
+                $key = strtolower($name);
+                $entry = $found[$key] ?? ['pct' => null, 'flood_storage_pct' => null, 'observed' => null, 'comment' => null];
+                foreach ($cols as $kind => $i) {
+                    $c = $cells[$i] ?? '';
+                    if ($entry[$kind] !== null || $c === '') {
+                        continue;
+                    }
+                    if ($kind === 'pct' || $kind === 'flood_storage_pct') {
+                        if (preg_match('/^(\d{1,3}(?:\.\d+)?)\s*%$/', $c, $m)) {
+                            $entry[$kind] = (float) $m[1];
+                        }
+                    } else {
+                        $entry[$kind] = mb_substr($c, 0, 200);
+                    }
+                }
                 $found[$key] = $entry;
             }
         }
     }
-    return $found;
+    return array_filter($found, static fn(array $e): bool => $e['pct'] !== null);
 }
 
 /**
- * Parse the release update page: which of our dams are releasing now, and when it was updated.
+ * Parse the dam release update page.
+ *
+ * Each gated dam has a statement ("Wivenhoe Dam - Flood releases from Wivenhoe Dam are not
+ * expected.", "North Pine Dam - Flood releases began at 11pm ... and will continue today.",
+ * "Somerset Dam - Operational releases from Somerset into Wivenhoe Dam began ..."), followed by
+ * lists of ungated dams spilling or with increased outflows.
  *
  * @param array<int, string> $names
- * @return array{updated: string|null, dams: array<int, string>}
+ * @return array{updated: string|null, dams: array<int, string>, operational: array<int, string>,
+ *     spilling: array<int, string>}
  */
 function sfw_dams_parse_releases(string $html, array $names): array
 {
@@ -111,23 +134,46 @@ function sfw_dams_parse_releases(string $html, array $names): array
     $doc->loadHTML('<?xml encoding="UTF-8">' . $html);
     libxml_clear_errors();
     $xp = new DOMXPath($doc);
+    foreach ($xp->query('//script|//style') ?: [] as $junk) {
+        $junk->parentNode?->removeChild($junk);
+    }
     $text = sfw_dams_text($xp->query('//body')->item(0) ?? $doc);
-    $updated = preg_match('#last updated[:\s-]*(\d{1,2}/\d{1,2}/\d{4}[\s-]*\d{1,2}:\d{2}(?:\s*[ap]m)?)#i', $text, $m)
-        ? trim($m[1]) : null;
-    $releasing = [];
-    // Sentence by sentence: a dam named with a release, and no word that it has ended.
-    foreach (preg_split('/(?<=[.!?])\s+/', $text) ?: [] as $sentence) {
-        $ended = '/\b(ceased|ended|stopped|finished|no longer|not releasing|completed)\b/i';
-        if (!preg_match('/releas/i', $sentence) || preg_match($ended, $sentence)) {
-            continue;
+    $updated = null;
+    if (preg_match('/latest update:\s*(.{6,60}?\d{4})/i', $text, $m)) {
+        $updated = trim($m[1]);
+    } elseif (preg_match('#last updated[:\s-]*(\d{1,2}/\d{1,2}/\d{4}[\s-]*\d{1,2}:\d{2})#i', $text, $m)) {
+        $updated = trim($m[1]);
+    }
+    $flood = [];
+    $operational = [];
+    $spilling = [];
+    $ended = '/\b(not expected|ceased|ended|stopped|finished|no longer|not releasing|completed|have concluded)\b/i';
+    foreach ($names as $name) {
+        // The dam's own statement: from "<Name> Dam - " up to the next "<Something> Dam - " or list.
+        $next = '(?=\b[A-Z][A-Za-z ()]{2,40} Dam\s+[-–]\s|UNGATED DAMS|$)';
+        if (preg_match('/\b' . preg_quote($name, '/') . ' Dam\s+[-–]\s+(.*?)' . $next . '/u', $text, $m)) {
+            $say = $m[1];
+            if (!preg_match($ended, $say)) {
+                if (preg_match('/flood releases?/i', $say)) {
+                    $flood[$name] = true;
+                } elseif (preg_match('/releases?/i', $say)) {
+                    $operational[$name] = true;
+                }
+            }
         }
-        foreach ($names as $name) {
-            if (stripos($sentence, $name) !== false) {
-                $releasing[$name] = true;
+        // The ungated dams' lists ("... are spilling excess water: A Dam B Dam ...").
+        $lists = [];
+        $listre = '/(?:spilling excess water|outflows have increased from the following dams):\s*([^.]*)/i';
+        if (preg_match_all($listre, $text, $lists)) {
+            foreach ($lists[1] as $list) {
+                if (preg_match('/\b' . preg_quote($name, '/') . ' Dam\b/i', $list)) {
+                    $spilling[$name] = true;
+                }
             }
         }
     }
-    return ['updated' => $updated, 'dams' => array_keys($releasing)];
+    return ['updated' => $updated, 'dams' => array_keys($flood), 'operational' => array_keys($operational),
+        'spilling' => array_keys($spilling)];
 }
 
 $names = array_map(static fn(array $d): string => $d['seqwater'], $cfg['list']);
@@ -148,7 +194,10 @@ try {
             : (isset($argv[1]) ? '' : sfw_fetch_raw($cfg['releases_url']));
         if ($rel !== '') {
             $state['releases'] = ['fetched' => time()] + sfw_dams_parse_releases($rel, $names);
-            $message .= '; releasing: ' . ($state['releases']['dams'] ? implode(', ', $state['releases']['dams']) : 'none');
+            $r = $state['releases'];
+            $message .= '; flood releases: ' . ($r['dams'] ? implode(', ', $r['dams']) : 'none')
+                . ($r['operational'] ? '; operational releases: ' . implode(', ', $r['operational']) : '')
+                . ($r['spilling'] ? '; spilling: ' . implode(', ', $r['spilling']) : '');
         }
     } catch (Throwable $e) {
         $message .= '; release page unavailable (' . $e->getMessage() . ')';

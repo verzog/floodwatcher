@@ -246,8 +246,13 @@ return [
     // score. Status comes from Seqwater's dam levels page (bin/collect_dams.php) and BoM's gauges:
     //   'level'  the lake gauge (live level and trend); 'tail' the gauge just below the dam, if any
     //   (a quick rise there means water is being released); 'fsl' full supply level in m AHD, where
-    //   known; 'node' the dam's place on the river network (data/network.csv) or, for dams not on
-    //   it, 'down' the gauge its water reaches first.
+    //   known and current (a lake above it is holding flood water); 'node' the dam's place on the
+    //   river network (data/network.csv) or, for dams not on it, 'down' the gauge its water
+    //   reaches first. Wivenhoe and Somerset run at reduced full supply levels (about 80%) during
+    //   Seqwater's dam improvement work, so their 'fsl' is left empty: whether they're holding flood
+    //   water comes from Seqwater's flood storage figures instead. 'into': the dam whose lake this
+    //   one empties into (Somerset and Cressbrook into Lake Wivenhoe); below that dam, this one
+    //   only counts through it.
     'dams' => [
         'seqwater_url'   => 'https://www.seqwater.com.au/water-supply/dam-levels',
         'releases_url'   => 'https://www.seqwater.com.au/dam-release-update',
@@ -255,11 +260,12 @@ return [
         'tail_rise_m'    => 0.5,  // Rise below the dam (over 6 hours) that shows water is being let out.
         'list'           => [
             ['key' => 'wivenhoe', 'name' => 'Wivenhoe Dam', 'seqwater' => 'Wivenhoe', 'lat' => -27.3944, 'lon' => 152.6097,
-                'level' => 'B540177-H', 'tail' => 'B540178-H', 'fsl' => 67.0, 'node' => 'B540177-H'],
+                'level' => 'B540177-H', 'tail' => 'B540178-H', 'fsl' => null, 'node' => 'B540177-H'],
             ['key' => 'somerset', 'name' => 'Somerset Dam', 'seqwater' => 'Somerset', 'lat' => -27.1169, 'lon' => 152.555,
-                'level' => 'B040820-H', 'tail' => null, 'fsl' => 99.0, 'node' => 'B040820-H'],
+                'level' => 'B040820-H', 'tail' => null, 'fsl' => null, 'node' => 'B040820-H', 'into' => 'B540177-H'],
             ['key' => 'cressbrook', 'name' => 'Cressbrook Dam', 'seqwater' => 'Cressbrook', 'lat' => -27.2633,
-                'lon' => 152.2089, 'level' => 'B540750-H', 'tail' => null, 'fsl' => null, 'node' => 'B540750-H'],
+                'lon' => 152.2089, 'level' => 'B540750-H', 'tail' => null, 'fsl' => null, 'node' => 'B540750-H',
+                'into' => 'B540177-H'],
             // Atkinson Dam is filled from Buaraba Creek; check: where its overflow reaches the river.
             ['key' => 'atkinson', 'name' => 'Atkinson Dam', 'seqwater' => 'Atkinson', 'lat' => -27.4319, 'lon' => 152.4642,
                 'level' => 'B540547-H', 'tail' => null, 'fsl' => null, 'down' => 'B540182-H'],

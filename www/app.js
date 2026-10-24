@@ -701,7 +701,8 @@
   /**
    * Dams whose water reaches a place, for its score: flood releases count as flooding (2 for
    * Wivenhoe and Somerset, which hold back the big floods; 1 for the others); a dam holding flood
-   * water or spilling counts as "Watch" only.
+   * water or spilling counts as "Watch" only. Below Wivenhoe, Somerset and Cressbrook don't count
+   * on their own: their water goes into Lake Wivenhoe.
    *
    * @param {Object} seen Network nodes upstream of the place.
    * @param {Array} atNodes The place's nearest network nodes.
@@ -713,6 +714,9 @@
     ((state.data && state.data.dams) || []).forEach(function (d) {
       var reaches = (d.node && seen[d.node]) || (d.down && (seen[d.down] || at[d.down]));
       if (!reaches || ['full', 'flood_storage', 'releasing'].indexOf(d.state) < 0) { return; }
+      // A dam that empties into another dam's lake (Somerset and Cressbrook into Wivenhoe) only
+      // reaches places below that dam through it, so there it's the lower dam that counts.
+      if (d.into && (seen[d.into] || at[d.into])) { return; }
       var big = d.key === 'wivenhoe' || d.key === 'somerset';
       var weight = d.state === 'releasing' ? (big ? 2 : 1) : 0.5;
       out.push({
