@@ -8,4 +8,4 @@
 
 declare(strict_types=1);
 
-return '0.17.3';
+return '0.18.0';

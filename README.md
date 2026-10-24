@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.17.3
+# Flood Watcher (SEQ Flood Watch) — version 0.18.0
 
 A community flood dashboard for the Brisbane River catchment. It collects rainfall and river
 heights from three public sources, stores them, and shows them on a map.
@@ -21,6 +21,33 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.18.0
+
+- **Predictive flood alerts are an icon on the map**, where the flooding is predicted, instead of a
+  panel over the map: a pulsing purple "!" (dark for "flooding likely", pale for "watch"). Tap it
+  for the details; the flood-prone land it covers is shaded while that's open. A small purple
+  chip in the top corner says one is active and jumps to it. "Predictive flood alerts" in the
+  map options switches them on and off.
+- **"Water coming here"** for any place you search for or tap, and for each saved area: a level
+  like the legend's (Low, Watch, Minor, Moderate, Major) with the reasons. It counts the gauges
+  at the place (within 3 km, or inside the area), the nearest gauge on each river or creek
+  within 6 km, everything upstream of those (each river or creek once, at its worst: major 3,
+  moderate 2, minor 1; half for water held behind a dam), dam flood releases, and predictive
+  alerts covering the place. Anything coming upstream makes it "Watch"; flooding upstream adding
+  up to 4 or more makes it "Minor"; flooding measured at the place counts at its own level. An
+  indicator from the gauges, not a forecast for the spot.
+- **Oxley Creek** (Greenbank to Graceville, with Blunder and Stable Swamp creeks) is on the river
+  network, so its gauges count for places like Oxley, Rocklea and Corinda.
+- **Dams**: Wivenhoe, Somerset, Cressbrook, Atkinson, Moogerah and Lake Manchester on the map,
+  coloured like the legend: blue below full, yellow full or spilling, orange holding flood water,
+  red flood releases. From Seqwater's dam levels and release update pages (read every 30 minutes
+  by the new bin/collect_dams.php; Seqwater has no data feed), BoM's gauge on each lake (level
+  against full supply level, and trend), and BoM's gauge below Wivenhoe and Moogerah dams (a quick
+  rise shows water being let out). Releases count in "water coming here" downstream. Settings:
+  'dams' in lib/defaults.php.
+
+My Webapp installs: add the new collect_dams.php line from cron/seqflood to /etc/cron.d/seqflood.
 
 ## Changes in 0.17.3
 
@@ -107,6 +134,7 @@ city creeks that drain to Moreton Bay are kept. Edit that file to change the bou
 | `bin/collect_traffic.php` | Road closures and flooding from QLDTraffic |
 | `bin/collect_warnings.php` | Current BoM flood warnings for the catchment |
 | `bin/collect_wu.php` | Weekly check of community rain stations (optional, needs your key) |
+| `bin/collect_dams.php`, `lib/dams.php` | Seqwater dam levels and releases, with BoM's lake and tailwater gauges |
 | `www/wu.php` | Looks up community rain for the stations in the map view |
 | `lib/potential.php` | Flood potential rules (lower Lockyer so far) |
 | `bin/push_setup.php` | Creates the push notification keys (once) |

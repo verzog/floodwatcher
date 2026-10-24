@@ -33,6 +33,7 @@ require dirname(__DIR__) . '/lib/alerts.php';
 require dirname(__DIR__) . '/lib/potential.php';
 require dirname(__DIR__) . '/lib/floodmask.php';
 require dirname(__DIR__) . '/lib/network.php';
+require dirname(__DIR__) . '/lib/dams.php';
 
 $config = sfw_config();
 $outdir = $config['public_data_dir'];
@@ -605,6 +606,10 @@ foreach (array_unique($network['problems']) as $problem) {
     sfw_log('River network: ' . $problem . '.');
 }
 $payload['network'] = ['nodes' => $network['nodes'], 'travel' => $network['travel']];
+
+// Dams: Seqwater's figures (bin/collect_dams.php) with BoM's lake and tailwater gauges.
+$payload['dams'] = sfw_dams_status($config['dams'], $items, $byid, sfw_state_read('seqwater'), $now);
+$payload['dams_source'] = $config['dams']['seqwater_url'];
 
 foreach ([$outdir, $outdir . '/series'] as $dir) {
     if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {

@@ -11,3 +11,5 @@
 9-59/15 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_wu.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
 # Flood map shading, weekly (Sunday 3:17 am): council and state flood maps rarely change.
 17 3 * * 0 my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/fetch_overlays.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+# Seqwater dam levels and releases every 30 minutes.
+11,41 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_dams.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1

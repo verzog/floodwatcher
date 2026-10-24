@@ -82,6 +82,8 @@
         <p class="small traffic-note" id="community-note" hidden></p>
         <label><input type="checkbox" id="show-roads" checked> Road closures &amp; flooding</label>
         <label><input type="checkbox" id="show-cameras" checked> Flood cameras</label>
+        <label><input type="checkbox" id="show-predictions" checked> Predictive flood alerts</label>
+        <label><input type="checkbox" id="show-dams" checked> Dams</label>
         <p class="small traffic-note" id="traffic-note"></p>
         <label class="period">Rain over
           <select id="rain-period">
@@ -125,6 +127,13 @@
           <li><span class="road-icon closed legend-sign"></span> Road closed (QLDTraffic)</li>
           <li><span class="road-icon flooding legend-sign">≈</span> Water over or near the road, still open</li>
           <li><span class="cam-legend" aria-hidden="true"></span> Flood camera (opens the council's camera page)</li>
+          <li><span class="dam-legend-row">
+            <span class="dam-icon dam-normal legend-dam" aria-hidden="true"></span><span class="dam-icon dam-full legend-dam" aria-hidden="true"></span><span class="dam-icon dam-flood_storage legend-dam" aria-hidden="true"></span><span class="dam-icon dam-releasing legend-dam" aria-hidden="true"></span></span>
+            Dam: below full, full or spilling, holding flood water, flood releases (Seqwater and BoM)</li>
+          <li><span class="predict-pin predict-pin-likely legend-pin" aria-hidden="true">!</span> Predictive flood alert:
+            flooding likely (this site's estimate from past floods)</li>
+          <li><span class="predict-pin predict-pin-watch legend-pin" aria-hidden="true">!</span> Predictive flood alert:
+            watch (heavy rain upstream)</li>
         </ul>
         <p class="small">More flood cameras:
           <a href="https://disaster.ipswich.qld.gov.au/" target="_blank" rel="noopener">Ipswich</a>,

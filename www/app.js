@@ -77,7 +77,6 @@
     predict: null,
     predictLayer: null,
     predictOn: true,
-    predictCollapsed: false,
     predictKey: '',
     areaLayer: null,
     areaFallback: null
@@ -184,9 +183,11 @@
   state.streamLayer = L.layerGroup().addTo(map);
   state.communityLayer = L.layerGroup(); // Off until its checkbox is ticked.
   state.cameraLayer = L.layerGroup().addTo(map);
+  state.damLayer = L.layerGroup().addTo(map);
   state.trafficLayer = L.layerGroup().addTo(map);
   state.watchLayer = L.layerGroup().addTo(map);
   state.areaLayer = L.layerGroup().addTo(map);
+  state.predictAreaLayer = L.layerGroup().addTo(map); // Shaded while a prediction's popup is open.
   state.predictLayer = L.layerGroup().addTo(map);
 
   // Popups narrow enough to fit the map beside the 56 px kept clear for the buttons on the left
@@ -626,6 +627,277 @@
     box.appendChild(list);
     box.appendChild(el('p', 'small', 'Travel times are from past floods and vary with rain and how wet the ground is. ' +
       'Follow BoM warnings.'));
+    return box;
+  }
+
+  // ---------- Dams (sensors.json "dams": Seqwater's figures with BoM's lake and tailwater gauges) ----------
+
+  var DAM_STATES = {
+    unknown: 'No recent figures',
+    normal: 'Below full',
+    full: 'Full or spilling',
+    flood_storage: 'Holding flood water',
+    releasing: 'Flood releases'
+  };
+
+  /** A small dam-wall icon, coloured by the dam's state. */
+  function damIconHtml(state) {
+    return '<span class="dam-icon dam-' + state + '" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18">' +
+      '<path d="M4 5h6l3 14H4z" fill="currentColor"/><path d="M14 9c1.5 1 3 1 4.5 0s3-1 4.5 0M14 13c1.5 1 3 1 4.5 0s3-1 4.5 0' +
+      'M14 17c1.5 1 3 1 4.5 0s3-1 4.5 0" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></span>';
+  }
+
+  /** The popup for a dam. */
+  function damPopup(d) {
+    var box = el('div', 'dam-popup');
+    var top = el('div', 'dam-top');
+    top.appendChild(el('span', 'dam-chip dam-' + d.state, DAM_STATES[d.state] || d.state));
+    top.appendChild(el('strong', null, d.name));
+    box.appendChild(top);
+    d.why.forEach(function (w) { box.appendChild(el('div', null, w.charAt(0).toUpperCase() + w.slice(1) + '.')); });
+    var facts = [];
+    if (d.pct !== null) { facts.push(d.pct.toFixed(1) + '% full (Seqwater' + (d.observed ? ', ' + d.observed : '') + ')'); }
+    if (d.level !== null) {
+      facts.push('Lake ' + d.level.toFixed(2) + ' m' + (d.fsl !== null ? ' (full supply ' + d.fsl.toFixed(2) + ' m)' : '') +
+        ', ' + (TREND_LABELS[d.level_trend] || 'trend unknown').toLowerCase() + ' (BoM gauge)');
+    }
+    if (d.tail_rise !== null && d.tail_rise !== undefined) {
+      var below = d.tail_rise >= 0.05 ? 'up ' + d.tail_rise.toFixed(2) + ' m' : 'steady';
+      facts.push('River below the dam: ' + below + ' over 6 hours');
+    }
+    if (d.comment && !/spill|flood storage/i.test(d.comment)) { facts.push('Seqwater: ' + d.comment); }
+    facts.forEach(function (f) { box.appendChild(el('div', 'small', f)); });
+    var links = el('div', 'dam-links small');
+    [['Lake gauge', d.level_id], ['Gauge below the dam', d.tail_id]].forEach(function (pair) {
+      if (!pair[1] || !state.data.sensors.some(function (x) { return x.id === pair[1]; })) { return; }
+      var b = el('button', 'nearlink', pair[0]);
+      b.type = 'button';
+      b.addEventListener('click', function () { map.closePopup(); select(pair[1]); });
+      links.appendChild(b);
+    });
+    var a = el('a', null, 'Seqwater dam levels and releases');
+    a.href = (state.data && state.data.dams_source) || 'https://www.seqwater.com.au/water-supply/dam-levels';
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    links.appendChild(a);
+    box.appendChild(links);
+    return box;
+  }
+
+  /** Draw a marker for each dam. */
+  function drawDams() {
+    state.damLayer.clearLayers();
+    ((state.data && state.data.dams) || []).forEach(function (d) {
+      var m = L.marker([d.lat, d.lon], {
+        icon: L.divIcon({ className: '', html: damIconHtml(d.state), iconSize: [0, 0] }),
+        keyboard: true, zIndexOffset: 600, title: d.name + ': ' + (DAM_STATES[d.state] || d.state).toLowerCase()
+      });
+      m.bindTooltip(d.name + ' — ' + (DAM_STATES[d.state] || d.state).toLowerCase());
+      m.bindPopup(function () { return damPopup(d); });
+      state.damLayer.addLayer(m);
+    });
+  }
+
+  /**
+   * Dams whose water reaches a place, for its score: flood releases count as flooding (2 for
+   * Wivenhoe and Somerset, which hold back the big floods; 1 for the others); a dam holding flood
+   * water or spilling counts as "Watch" only.
+   *
+   * @param {Object} seen Network nodes upstream of the place.
+   * @param {Array} atNodes The place's nearest network nodes.
+   */
+  state.damsUpstream = function (seen, atNodes) {
+    var out = [];
+    var at = {};
+    atNodes.forEach(function (n) { at[n.key] = true; });
+    ((state.data && state.data.dams) || []).forEach(function (d) {
+      var reaches = (d.node && seen[d.node]) || (d.down && (seen[d.down] || at[d.down]));
+      if (!reaches || ['full', 'flood_storage', 'releasing'].indexOf(d.state) < 0) { return; }
+      var big = d.key === 'wivenhoe' || d.key === 'somerset';
+      var weight = d.state === 'releasing' ? (big ? 2 : 1) : 0.5;
+      out.push({
+        name: d.name, weight: weight, flood: d.state === 'releasing',
+        text: d.name + ': ' + (d.why.length ? d.why.join('; ') : (DAM_STATES[d.state] || d.state).toLowerCase()) + '.'
+      });
+    });
+    return out;
+  };
+
+  // ---------- Upstream water score for a place ----------
+
+  var SCORE_LEVELS = ['low', 'watch', 'minor', 'moderate', 'major'];
+  var SCORE_LABELS = { low: 'Low', watch: 'Watch', minor: 'Minor', moderate: 'Moderate', major: 'Major' };
+  // How much each kind of upstream water adds to the total (see placeScore).
+  var SCORE_WEIGHTS = { major: 3, moderate: 2, minor: 1, rising_fast: 0.5, near: 0.5 };
+
+  /** The waterway a gauge is on: "Oxley Creek at Corinda" → "Oxley Creek". */
+  function waterwayOf(name) {
+    return String(name || '').split(/\s+(?:at|@)\s+/i)[0].replace(/\s+Mouth$/i, '').trim();
+  }
+
+  /** Straight-line distance in metres. */
+  function metresBetween(lat1, lon1, lat2, lon2) {
+    return map.distance([lat1, lon1], [lat2, lon2]);
+  }
+
+  /**
+   * How much water is coming to a place, as a level like the legend's, with the reasons.
+   *
+   * - Here: river and creek gauges within 3 km (or inside the area's box), and the nearest gauge on
+   *   each river or creek within 6 km (up to four). Their own flood level counts as is.
+   * - Upstream: every gauge upstream of those on the river network. Each waterway counts once, at
+   *   its worst gauge: major flooding 3, moderate 2, minor 1, rising fast or near minor 0.5, and
+   *   half that above a dam (the dam holds it back). Dam flood releases count too. Anything
+   *   coming is "Watch"; flooding upstream adding up to 4 or more (e.g. two rivers in moderate
+   *   flood) is "Minor". Rising water on its own never goes past "Watch".
+   * - A predictive flood alert covering the place: "Minor" if flooding is likely, else "Watch".
+   *
+   * @param {number} lat
+   * @param {number} lon
+   * @param {Array} [box] [S, W, N, E] for a saved area (its gauges count as "here").
+   * @return {{level: string, reasons: Array<{level: string, text: string}>, total: number}}
+   */
+  function placeScore(lat, lon, box) {
+    var reasons = [];
+    var level = 'low';
+    var raise = function (l) { if (SCORE_LEVELS.indexOf(l) > SCORE_LEVELS.indexOf(level)) { level = l; } };
+    var sensors = (state.data && state.data.sensors) || [];
+    var byId = {};
+    sensors.forEach(function (x) { byId[x.id] = x; });
+    var usable = function (g) {
+      return g && g.type === 'stream' && !g.community && !g.note && !g.stale && g.latest !== null && g.latest !== undefined;
+    };
+    var inside = function (g) {
+      return box ? g.lat >= box[0] && g.lat <= box[2] && g.lon >= box[1] && g.lon <= box[3]
+        : metresBetween(lat, lon, g.lat, g.lon) <= 3000;
+    };
+    var km = function (g) { return (metresBetween(lat, lon, g.lat, g.lon) / 1000).toFixed(1) + ' km away'; };
+    var counted = {};
+
+    // Here: the place's own gauges.
+    var hereGauge = function (g, where) {
+      if (counted[g.id] || !usable(g)) { return; }
+      counted[g.id] = true;
+      var st = upstreamStatus(g);
+      if (!st) { return; }
+      var l = st.rank >= 3 ? g.flood_class : 'watch';
+      raise(l);
+      reasons.push({ level: l, text: g.name + ' (' + where + '): ' + st.text.charAt(0).toLowerCase() + st.text.slice(1) +
+        ', ' + g.latest.toFixed(2) + ' m.' });
+    };
+    sensors.forEach(function (g) { if (usable(g) && inside(g)) { hereGauge(g, box ? 'in this area' : km(g)); } });
+
+    // The nearest point on each of the closest two waterways on the river network.
+    var ix = networkIndex();
+    var atNodes = [];
+    if (ix) {
+      var nearest = {};
+      Object.keys(ix.net.nodes).forEach(function (k) {
+        ix.net.nodes[k].ids.forEach(function (id) {
+          var g = byId[id];
+          if (!g) { return; }
+          var d = metresBetween(lat, lon, g.lat, g.lon);
+          var w = waterwayOf(g.name);
+          if (d <= 6000 && (!nearest[w] || d < nearest[w].d)) { nearest[w] = { key: k, d: d, g: g }; }
+        });
+      });
+      // Every river and creek within 6 km (up to four): a suburb like Oxley sits on a creek and on
+      // the Brisbane River, which backs up the creek in a big flood.
+      atNodes = Object.keys(nearest).map(function (w) { return nearest[w]; })
+        .sort(function (a, b) { return a.d - b.d; }).slice(0, 4);
+      atNodes.forEach(function (n) { hereGauge(n.g, 'nearest on the ' + waterwayOf(n.g.name) + ', ' + km(n.g)); });
+    }
+
+    // Upstream: each waterway counts once, at its worst.
+    var worstBy = {};
+    var seen = {};
+    atNodes.forEach(function (at) {
+      var queue = (ix.up[at.key] || []).map(function (k) { return { key: k, held: false }; });
+      while (queue.length) {
+        var item = queue.shift();
+        if (seen[item.key]) { continue; }
+        seen[item.key] = true;
+        var node = ix.net.nodes[item.key];
+        var held = item.held || (node.dam && node.down !== at.key);
+        node.ids.forEach(function (id) {
+          var g = byId[id];
+          if (!usable(g) || counted[id]) { return; }
+          var st = upstreamStatus(g);
+          if (!st) { return; }
+          var kind = st.rank >= 3 ? g.flood_class : st.rank === 2 ? 'rising_fast' : 'near';
+          var weight = SCORE_WEIGHTS[kind] * (held ? 0.5 : 1);
+          var w = waterwayOf(g.name);
+          if (!worstBy[w] || weight > worstBy[w].weight) {
+            var t = held ? null : travelTime(ix, item.key, at.key);
+            worstBy[w] = {
+              weight: weight,
+              flood: st.rank >= 3,
+              text: g.name + ': ' + st.text.charAt(0).toLowerCase() + st.text.slice(1) + ', ' + g.latest.toFixed(2) + ' m' +
+                (held ? ' (above a dam, which holds it back).' : t ? '; usually reaches the ' + waterwayOf(at.g.name) +
+                  ' here in about ' + Math.round(t.hours) + ' h.' : '.')
+            };
+          }
+        });
+        (ix.up[item.key] || []).forEach(function (k) { queue.push({ key: k, held: held }); });
+      }
+    });
+
+    // Dam flood releases upstream (see the dams section).
+    (state.damsUpstream ? state.damsUpstream(seen, atNodes) : []).forEach(function (d) {
+      worstBy['dam:' + d.name] = { weight: d.weight, flood: !!d.flood, text: d.text };
+    });
+
+    // Only flooding counts towards "Minor"; rising water on its own is a "Watch".
+    var total = 0;
+    var flooding = 0;
+    Object.keys(worstBy).forEach(function (w) {
+      total += worstBy[w].weight;
+      if (worstBy[w].flood) { flooding += worstBy[w].weight; }
+      reasons.push({ level: 'upstream', text: worstBy[w].text, weight: worstBy[w].weight });
+    });
+    if (total > 0) { raise(flooding >= 4 ? 'minor' : 'watch'); }
+
+    // Predictive flood alerts covering the place.
+    if (predictOn()) {
+      ((state.alerts && state.alerts.alerts) || []).filter(isPrediction).forEach(function (a) {
+        if (a.bbox && lat >= a.bbox[0] && lat <= a.bbox[2] && lon >= a.bbox[1] && lon <= a.bbox[3]) {
+          var l = a.level === 'likely' ? 'minor' : 'watch';
+          raise(l);
+          reasons.push({ level: l, text: 'Predictive flood alert (' + (PREDICT_LABELS[a.level] || 'watch').toLowerCase() +
+            '): ' + a.name + '.' });
+        }
+      });
+    }
+
+    reasons.sort(function (a, b) {
+      var r = function (x) { return x.level === 'upstream' ? 0.5 + (x.weight || 0) / 10 : SCORE_LEVELS.indexOf(x.level); };
+      return r(b) - r(a);
+    });
+    return { level: level, reasons: reasons, total: total, rivers: atNodes.length };
+  }
+
+  /** The score as a small block for a popup or the areas list. */
+  function scoreBlock(score, compact) {
+    var box = el('div', 'score score-' + score.level + (compact ? ' compact' : ''));
+    var head = el('div', 'score-head');
+    head.appendChild(el('span', 'score-badge lvl-' + score.level, SCORE_LABELS[score.level]));
+    head.appendChild(el('span', 'score-title', 'Water coming here'));
+    box.appendChild(head);
+    if (!score.reasons.length) {
+      box.appendChild(el('div', 'small', score.rivers
+        ? 'Nothing flooding or rising here or upstream.'
+        : 'No river or creek gauges near here to go by.'));
+    }
+    score.reasons.slice(0, compact ? 2 : 6).forEach(function (r) { box.appendChild(el('div', 'score-reason', r.text)); });
+    if (compact && score.reasons.length > 2) {
+      var more = el('button', 'score-more', '+ ' + (score.reasons.length - 2) + ' more');
+      more.type = 'button';
+      more.addEventListener('click', function () { box.replaceWith(scoreBlock(score, false)); });
+      box.appendChild(more);
+    }
+    if (!compact) {
+      box.appendChild(el('div', 'small', 'From gauges here and upstream: an indicator, not a forecast for this spot.'));
+    }
     return box;
   }
 
@@ -1218,6 +1490,7 @@
   function placePopup(latlng, title, withGauges) {
     var box = el('div', 'place-popup');
     box.appendChild(el('strong', null, title || 'This spot'));
+    if (state.data) { box.appendChild(scoreBlock(placeScore(latlng.lat, latlng.lng))); }
     var hits = overlaysAt(latlng);
     var anyOn = state.overlays.some(function (o) { return o.on && o.style !== 'outline'; });
     if (hits.length) {
@@ -1479,11 +1752,11 @@
    * runs that line up exactly in neighbouring rows are joined into blocks so fewer shapes are drawn.
    * Without it (flood maps not set up on the site), the prediction's box is outlined instead.
    */
-  function drawFloodArea(a) {
+  function drawFloodArea(a, layer) {
     var colour = cssVar('--predict');
     var area = a.area;
     if (!area || !area.runs || !area.runs.length) {
-      state.predictLayer.addLayer(L.rectangle([[a.bbox[0], a.bbox[1]], [a.bbox[2], a.bbox[3]]], {
+      layer.addLayer(L.rectangle([[a.bbox[0], a.bbox[1]], [a.bbox[2], a.bbox[3]]], {
         color: colour, weight: 2, dashArray: '8 5', fillColor: colour, fillOpacity: 0.06, interactive: false
       }));
       return;
@@ -1515,7 +1788,7 @@
     Object.keys(open).forEach(function (k) { blocks.push(open[k]); });
     var cell = area.cell;
     blocks.forEach(function (b) {
-      state.predictLayer.addLayer(L.rectangle([
+      layer.addLayer(L.rectangle([
         [area.s + b.r0 * cell, area.w + b.c0 * cell], [area.s + (b.r1 + 1) * cell, area.w + (b.c1 + 1) * cell]
       ], { renderer: floodRenderer, stroke: false, fillColor: colour, fillOpacity: 0.38, interactive: false }));
     });
@@ -1534,102 +1807,92 @@
     try { window.localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* Kept for this page only. */ }
   }
 
-  /** Minimise or open the predictive panel, remembering a minimised prediction across reloads. */
-  function setPredictCollapsed(collapsed) {
-    state.predictCollapsed = collapsed;
-    memSet('floodwatcher.predictMinimised', collapsed ? state.predictKey : null);
-    showPredictions();
+  var PREDICT_LABELS = { likely: 'Flooding likely', watch: 'Watch' };
+
+  /** The popup for a prediction: what, why, since when, and a button to show the area. */
+  function predictPopup(a) {
+    var box = el('div', 'predict-popup predict-' + a.level);
+    var top = el('div', 'predict-top');
+    top.appendChild(el('span', 'predict-chip', PREDICT_LABELS[a.level] || 'Watch'));
+    top.appendChild(el('span', 'predict-kind', 'Predictive flood alert'));
+    box.appendChild(top);
+    box.appendChild(el('strong', null, a.name));
+    box.appendChild(el('div', 'predict-text', a.text.charAt(0).toUpperCase() + a.text.slice(1) + '.'));
+    var foot = el('div', 'predict-foot');
+    foot.appendChild(el('span', 'small', 'Since ' + fmtHM(a.since)));
+    if (a.bbox) {
+      var show = el('button', 'predict-show', 'Show area');
+      show.type = 'button';
+      show.addEventListener('click', function () {
+        map.closePopup();
+        map.fitBounds(L.latLngBounds([a.bbox[0], a.bbox[1]], [a.bbox[2], a.bbox[3]]), { padding: [20, 20] });
+        state.predictAreaLayer.clearLayers();
+        drawFloodArea(a, state.predictAreaLayer);
+      });
+      foot.appendChild(show);
+    }
+    box.appendChild(foot);
+    box.appendChild(el('p', 'small', 'This site\'s estimate from past floods, not a BoM warning. ' +
+      'Follow BoM warnings and emergency services.'));
+    return box;
   }
 
-  /** Fill the predictive panel: active predictions, or a quiet line, plus the on/off switch. */
+  /**
+   * Predictive flood alerts: a pulsing purple icon on the map where the flooding is predicted (tap
+   * it for the details; the flood-prone land it covers is shaded while that's open), and a small
+   * chip in the top corner while any is active, which jumps to them. Switched on and off with the
+   * "Predictive flood alerts" tick box in the map options.
+   */
   function showPredictions() {
-    var box = state.predict;
-    if (!box) { return; }
+    var chip = state.predict;
+    if (!chip) { return; }
     var on = predictOn();
-    var data = state.alerts || {};
-    var active = (data.alerts || []).filter(isPrediction);
-    var ended = (data.cleared || []).filter(function (c) { return /^P-/.test(c.id); });
-    box.replaceChildren();
+    var active = on ? ((state.alerts || {}).alerts || []).filter(isPrediction) : [];
+    // Redraw the icons only when the predictions change (this runs on every map move, and
+    // redrawing would close an open popup).
+    var key = JSON.stringify(active.map(function (a) { return [a.id, a.level, a.text, a.since, a.lat, a.lon]; }));
+    if (key === state.predictDrawn) { return; }
+    state.predictDrawn = key;
     state.predictLayer.clearLayers();
-    var worst = active.some(function (a) { return a.level === 'likely'; }) ? 'likely' : active.length ? 'watch' : null;
-    box.className = 'predict' + (!on ? ' off' : worst ? ' active predict-' + worst : ' quiet');
-    // A new or worse prediction opens the panel, except: one this browser already minimised stays
-    // minimised (even after a reload), and on a phone it starts as the one-line bar so the map
-    // stays visible.
-    var key = active.map(function (a) { return a.id + ':' + a.level; }).join(',');
-    if (key !== state.predictKey) {
-      state.predictCollapsed = !!key && (memGet('floodwatcher.predictMinimised') === key || SMALL_SCREEN.matches);
-    }
-    state.predictKey = key;
-
-    var head = el('div', 'predict-head');
-    head.appendChild(el('span', 'predict-title', on && active.length ? 'Predictive flood alert' : 'Predictive flood alerts'));
-    var tools = el('span', 'predict-tools');
-    if (on && active.length) {
-      // Minimise to a one-line bar (it stays on screen; a new prediction opens it again).
-      var min = el('button', 'predict-min', state.predictCollapsed ? '+' : '–');
-      min.type = 'button';
-      min.setAttribute('aria-expanded', state.predictCollapsed ? 'false' : 'true');
-      min.setAttribute('aria-label', state.predictCollapsed ? 'Show the predictive alert' : 'Minimise the predictive alert');
-      min.addEventListener('click', function (e) {
-        L.DomEvent.stop(e); // The panel is redrawn; don't let the click fall through to the map.
-        setPredictCollapsed(!state.predictCollapsed);
+    state.predictMarkers = {};
+    active.forEach(function (a) {
+      var icon = L.divIcon({
+        className: '',
+        html: '<span class="predict-pin predict-pin-' + a.level + '" aria-hidden="true">!</span>',
+        iconSize: [0, 0]
       });
-      tools.appendChild(min);
-    }
-    var sw = el('button', 'predict-switch', on ? 'On' : 'Off');
-    sw.type = 'button';
-    sw.setAttribute('role', 'switch');
-    sw.setAttribute('aria-checked', on ? 'true' : 'false');
-    sw.title = on ? 'Hide predictive flood alerts' : 'Show predictive flood alerts';
-    sw.addEventListener('click', function (e) { L.DomEvent.stop(e); setPredictOn(!on); });
-    tools.appendChild(sw);
-    head.appendChild(tools);
-    box.appendChild(head);
-    if (!on) { return; }
+      var m = L.marker([a.lat, a.lon], {
+        icon: icon, keyboard: true, zIndexOffset: 1000,
+        title: 'Predictive flood alert (' + (PREDICT_LABELS[a.level] || 'Watch').toLowerCase() + '): ' + a.name
+      });
+      m.bindPopup(function () { return predictPopup(a); });
+      m.on('popupopen', function () { drawFloodArea(a, state.predictAreaLayer); });
+      m.on('popupclose', function () { state.predictAreaLayer.clearLayers(); });
+      state.predictLayer.addLayer(m);
+      state.predictMarkers[a.id] = m;
+    });
 
+    chip.hidden = !active.length;
     if (!active.length) {
-      box.appendChild(el('div', 'predict-none', 'None active. Predictions are worked out from upstream gauges and rain, ' +
-        'using past floods.'));
-      ended.forEach(function (c) {
-        box.appendChild(el('div', 'predict-ended', c.name + ': ' + c.text + ' (' + fmtHM(c.at) + ').'));
-      });
+      state.predictAreaLayer.clearLayers();
       return;
     }
-    if (state.predictCollapsed) {
-      box.classList.add('collapsed');
-      var line = el('button', 'predict-line', active.map(function (a) {
-        return (a.level === 'likely' ? 'Flooding likely: ' : 'Watch: ') + a.name.split(' (')[0];
-      }).join(' · '));
-      line.type = 'button';
-      line.addEventListener('click', function (e) { L.DomEvent.stop(e); setPredictCollapsed(false); });
-      box.appendChild(line);
-    }
-    active.forEach(function (a) {
-      if (state.predictCollapsed) { return; }
-      var item = el('div', 'predict-item');
-      var top = el('div', 'predict-top');
-      top.appendChild(el('span', 'predict-chip', a.level === 'likely' ? 'Flooding likely' : 'Watch'));
-      top.appendChild(el('strong', null, a.name));
-      item.appendChild(top);
-      item.appendChild(el('div', 'predict-text', a.text.charAt(0).toUpperCase() + a.text.slice(1) + '.'));
-      var foot = el('div', 'predict-foot');
-      foot.appendChild(el('span', null, 'Since ' + fmtHM(a.since)));
-      if (a.bbox) {
-        var bounds = L.latLngBounds([a.bbox[0], a.bbox[1]], [a.bbox[2], a.bbox[3]]);
-        var show = el('button', 'predict-show', 'Show area');
-        show.type = 'button';
-        show.addEventListener('click', function () { map.fitBounds(bounds); });
-        foot.appendChild(show);
-        drawFloodArea(a);
+    var worst = active.some(function (a) { return a.level === 'likely'; }) ? 'likely' : 'watch';
+    chip.className = 'predict-chip-btn predict-' + worst;
+    chip.textContent = active.length === 1
+      ? '! ' + (PREDICT_LABELS[active[0].level] || 'Watch') + ': ' + active[0].name.split(' (')[0]
+      : '! ' + active.length + ' predictive flood alerts';
+    chip.title = 'Show on the map';
+    chip.onclick = function (e) {
+      L.DomEvent.stop(e);
+      if (active.length === 1) {
+        var only = state.predictMarkers[active[0].id];
+        map.setView(only.getLatLng(), Math.max(map.getZoom(), 10));
+        only.openPopup();
+      } else {
+        map.fitBounds(L.latLngBounds(active.map(function (a) { return [a.lat, a.lon]; })), { padding: [60, 60], maxZoom: 11 });
       }
-      item.appendChild(foot);
-      box.appendChild(item);
-    });
-    if (!state.predictCollapsed) {
-      box.appendChild(el('div', 'predict-note', 'This site\'s estimate from past floods, not a BoM warning. ' +
-        'Follow BoM warnings and emergency services.'));
-    }
+    };
   }
 
   // ---------- Alerts card (top right of the map) ----------
@@ -1826,9 +2089,10 @@
     options: { position: 'topright' },
     onAdd: function () {
       var box = L.DomUtil.create('div', 'alert-control');
-      // Predictive flood alerts get their own panel, above everything else.
-      var predict = L.DomUtil.create('section', 'predict quiet', box);
-      predict.setAttribute('aria-label', 'Predictive flood alerts');
+      // Predictive flood alerts: a small chip while any is active (the alerts are icons on the map).
+      var predict = L.DomUtil.create('button', 'predict-chip-btn', box);
+      predict.type = 'button';
+      predict.hidden = true;
       predict.setAttribute('aria-live', 'polite');
       state.predict = predict;
       var pill = L.DomUtil.create('button', 'alert-pill quiet', box);
@@ -1902,6 +2166,7 @@
       .then(function (data) {
         state.alerts = data;
         refreshUpstream(); // Predictions covering the open gauge.
+        renderAreas();     // And any saved area.
         // What counts as new: a warning issue, or a gauge alert at a level not seen before.
         var keys = (data.warnings || []).map(function (w) { return 'w:' + w.id + ':' + w.issued; })
           .concat((data.alerts || []).filter(function (a) { return !isPrediction(a); })
@@ -2127,6 +2392,9 @@
 
       var li = el('li', 'area-item');
       li.appendChild(el('span', 'area-name', a.name));
+      if (state.data) {
+        li.appendChild(scoreBlock(placeScore((a.s + a.n) / 2, (a.w + a.e) / 2, [a.s, a.w, a.n, a.e]), true));
+      }
       var show = el('button', 'area-btn', 'Show');
       show.type = 'button';
       show.addEventListener('click', function () { map.fitBounds(bounds); });
@@ -2346,9 +2614,11 @@
       .then(function (data) {
         state.data = data;
         drawMarkers();
+        drawDams();
         drawWatchRings();
         showFreshness();
         if (state.alerts) { showAlerts(); } // Gauge positions are known now.
+        renderAreas(); // Their scores use the latest readings.
         var wanted = state.selected || location.hash.slice(1);
         if (wanted) {
           select(wanted);
@@ -2394,6 +2664,15 @@
   document.getElementById('show-roads').addEventListener('change', function (e) {
     if (e.target.checked) { map.addLayer(state.trafficLayer); } else { map.removeLayer(state.trafficLayer); }
   });
+  // Predictive flood alerts on the map (remembered in this browser).
+  var predictBox = document.getElementById('show-predictions');
+  predictBox.checked = predictOn();
+  predictBox.addEventListener('change', function (e) { setPredictOn(e.target.checked); });
+
+  document.getElementById('show-dams').addEventListener('change', function (e) {
+    if (e.target.checked) { map.addLayer(state.damLayer); } else { map.removeLayer(state.damLayer); }
+  });
+
   document.getElementById('show-cameras').addEventListener('change', function (e) {
     if (e.target.checked) { map.addLayer(state.cameraLayer); } else { map.removeLayer(state.cameraLayer); }
   });

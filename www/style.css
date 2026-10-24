@@ -1190,10 +1190,12 @@ a { color: var(--accent); }
 
 .area-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   font-size: 0.9rem;
 }
+.area-item .score { order: 3; flex-basis: 100%; }
 
 .area-name {
   flex: 1;
@@ -1459,4 +1461,234 @@ a { color: var(--accent); }
 /* While a popup the panels would cover is open, they step aside. */
 .alert-control.stepped-aside {
   visibility: hidden;
+}
+
+/* ---------- Predictive flood alerts: an icon on the map, a chip in the corner ---------- */
+.predict-pin {
+  position: absolute;
+  left: -15px;
+  top: -15px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-family: var(--font);
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--predict-bg);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 0 0 2px var(--predict), 0 2px 6px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.predict-pin-watch {
+  color: var(--predict-bg);
+  background: #e8dbf6;
+}
+/* A ring that pulses outwards, so the icon is noticed without covering the map. */
+.predict-pin::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 3px solid var(--predict);
+  animation: predict-ring 2s ease-out infinite;
+}
+@keyframes predict-ring {
+  from { transform: scale(1); opacity: 0.9; }
+  to { transform: scale(2.2); opacity: 0; }
+}
+.legend-pin {
+  position: relative;
+  left: 0;
+  top: 0;
+  margin-right: 6px;
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  font-size: 0.8rem;
+  vertical-align: middle;
+}
+.legend-pin::after { display: none; }
+
+.predict-chip-btn {
+  display: block;
+  margin: 0 0 6px auto;
+  max-width: min(320px, calc(100vw - 110px));
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--predict-bg);
+  border: 2px solid var(--predict);
+  border-radius: 16px;
+  padding: 5px 12px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.predict-chip-btn.predict-watch {
+  color: var(--predict-bg);
+  background: #f1e8fa;
+}
+.predict-chip-btn[hidden] { display: none; }
+
+.predict-popup {
+  display: grid;
+  gap: 6px;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.predict-popup .predict-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.predict-popup .predict-chip {
+  color: #ffffff;
+  background: var(--predict-bg);
+}
+.predict-kind {
+  color: var(--predict);
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.predict-popup .predict-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.predict-popup .predict-show {
+  font: inherit;
+  font-weight: 700;
+  color: var(--predict);
+  background: transparent;
+  border: 1.5px solid var(--predict);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.predict-popup p { margin: 0; }
+
+@media (pointer: coarse) {
+  .predict-chip-btn { min-height: 40px; }
+  .predict-popup .predict-show { min-height: 40px; }
+}
+
+/* ---------- Water coming to a place (score) ---------- */
+.score {
+  display: grid;
+  gap: 3px;
+  margin: 4px 0 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border-left: 4px solid var(--steady);
+  background: var(--bg);
+}
+.score.score-watch { border-left-color: var(--rising); }
+.score.score-minor { border-left-color: var(--flood-minor); }
+.score.score-moderate { border-left-color: var(--flood-moderate); }
+.score.score-major { border-left-color: var(--flood-major); }
+.score-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.score-title { font-weight: 700; }
+.score-badge {
+  padding: 1px 9px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1c2430;
+}
+.score-badge.lvl-low { color: #ffffff; background: var(--steady); }
+.score-badge.lvl-watch { background: var(--rising); }
+.score-badge.lvl-minor { background: var(--flood-minor); }
+.score-badge.lvl-moderate { background: var(--flood-moderate); }
+.score-badge.lvl-major { color: #ffffff; background: var(--flood-major); }
+.score-reason { font-size: 0.85rem; }
+.score.compact { padding: 4px 8px; }
+.score.compact .score-reason { font-size: 0.8rem; color: var(--muted); }
+.score-more {
+  justify-self: start;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---------- Dams ---------- */
+.dam-icon {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: #ffffff;
+  background: var(--water);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.dam-icon.dam-unknown { background: var(--unknown); }
+.dam-icon.dam-full { color: #1c2430; background: var(--flood-minor); }
+.dam-icon.dam-flood_storage { background: var(--flood-moderate); }
+.dam-icon.dam-releasing { background: var(--flood-major); }
+.legend-dam {
+  position: relative;
+  left: 0;
+  top: 0;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 2px;
+  border-width: 1.5px;
+  vertical-align: middle;
+}
+.dam-legend-row { white-space: nowrap; }
+
+.dam-popup {
+  display: grid;
+  gap: 4px;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.dam-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dam-chip {
+  padding: 1px 9px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--water);
+}
+.dam-chip.dam-unknown { background: var(--unknown); }
+.dam-chip.dam-full { color: #1c2430; background: var(--flood-minor); }
+.dam-chip.dam-flood_storage { background: var(--flood-moderate); }
+.dam-chip.dam-releasing { background: var(--flood-major); }
+.dam-links {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
 }

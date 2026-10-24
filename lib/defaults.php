@@ -242,6 +242,36 @@ return [
 
     // Flood potential rules, worked out from 30 years of state gauge history (see README).
     // Heights use BoM's gauge zero at the same sites (checked against BoM on 22/10/2026).
+    // Dams in the Brisbane River catchment, shown on the map and counted in the "water coming here"
+    // score. Status comes from Seqwater's dam levels page (bin/collect_dams.php) and BoM's gauges:
+    //   'level'  the lake gauge (live level and trend); 'tail' the gauge just below the dam, if any
+    //   (a quick rise there means water is being released); 'fsl' full supply level in m AHD, where
+    //   known; 'node' the dam's place on the river network (data/network.csv) or, for dams not on
+    //   it, 'down' the gauge its water reaches first.
+    'dams' => [
+        'seqwater_url'   => 'https://www.seqwater.com.au/water-supply/dam-levels',
+        'releases_url'   => 'https://www.seqwater.com.au/dam-release-update',
+        'stale_hours'    => 6,    // Seqwater figures older than this aren't used.
+        'tail_rise_m'    => 0.5,  // Rise below the dam (over 6 hours) that shows water is being let out.
+        'list'           => [
+            ['key' => 'wivenhoe', 'name' => 'Wivenhoe Dam', 'seqwater' => 'Wivenhoe', 'lat' => -27.3944, 'lon' => 152.6097,
+                'level' => 'B540177-H', 'tail' => 'B540178-H', 'fsl' => 67.0, 'node' => 'B540177-H'],
+            ['key' => 'somerset', 'name' => 'Somerset Dam', 'seqwater' => 'Somerset', 'lat' => -27.1169, 'lon' => 152.555,
+                'level' => 'B040820-H', 'tail' => null, 'fsl' => 99.0, 'node' => 'B040820-H'],
+            ['key' => 'cressbrook', 'name' => 'Cressbrook Dam', 'seqwater' => 'Cressbrook', 'lat' => -27.2633,
+                'lon' => 152.2089, 'level' => 'B540750-H', 'tail' => null, 'fsl' => null, 'node' => 'B540750-H'],
+            // Atkinson Dam is filled from Buaraba Creek; check: where its overflow reaches the river.
+            ['key' => 'atkinson', 'name' => 'Atkinson Dam', 'seqwater' => 'Atkinson', 'lat' => -27.4319, 'lon' => 152.4642,
+                'level' => 'B540547-H', 'tail' => null, 'fsl' => null, 'down' => 'B540182-H'],
+            // Moogerah Dam is on Reynolds Creek, which joins Warrill Creek above Kalbar.
+            ['key' => 'moogerah', 'name' => 'Moogerah Dam', 'seqwater' => 'Moogerah', 'lat' => -28.0314, 'lon' => 152.55,
+                'level' => 'B540474-H', 'tail' => 'B540513-H', 'fsl' => null, 'down' => 'B540058-H'],
+            // Lake Manchester is on Cabbage Tree Creek, which meets the Brisbane River at Mt Crosby.
+            ['key' => 'manchester', 'name' => 'Lake Manchester', 'seqwater' => 'Lake Manchester', 'lat' => -27.4883,
+                'lon' => 152.7515, 'level' => 'B540606-H', 'tail' => null, 'fsl' => null, 'down' => 'B540199-H'],
+        ],
+    ],
+
     'potential' => [
         [
             'key'      => 'lockyer_lower',

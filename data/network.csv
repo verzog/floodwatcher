@@ -83,3 +83,13 @@ B540180-H|B040816-H,B040838-H,,Warrill Creek; check: joins the Bremer above Thre
 # ---- Purga Creek ----
 B540065-H,B540062-H,,Peak Crossing
 B540062-H,B040838-H,,Purga Creek; check: joins Warrill Creek near Amberley
+# ---- Oxley Creek (meets the Brisbane River at Graceville; big Brisbane River floods back up it) ----
+B540097-H,B540646-H,,New Beith Road (Greenbank)
+B540646-H,B040796-H,,Goodna Road
+B040796-H,B540805-H,,Acacia Ridge (Beatty Rd)
+B040789-H,B540805-H,,Blunder Creek; check: joins Oxley Creek near Durack
+B540805-H,B540071-H,,Upstream of the Ipswich Motorway
+B040791-H,B540432-H,,Stable Swamp Creek at Coopers Plains
+B540432-H,B540274-H,,Stable Swamp Creek; check: joins Oxley Creek near Rocklea
+B540071-H,B540274-H,,Corinda
+B540274-H,B540683-H,,Oxley Creek meets the Brisbane River between Jindalee and St Lucia
