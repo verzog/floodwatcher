@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.17.2
+# Flood Watcher (SEQ Flood Watch) — version 0.17.3
 
 A community flood dashboard for the Brisbane River catchment. It collects rainfall and river
 heights from three public sources, stores them, and shows them on a map.
@@ -21,6 +21,17 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.17.3
+
+- **The "heavy rain" predictive watch ends once the danger has passed**, instead of staying on
+  until the rain drops out of its 72-hour total (up to three days after it stopped). It now ends
+  after 30 dry hours (under 1 mm an hour on average at Helidon and Tenthill) as long as none of
+  the trigger gauges is rising. Since 1995 every flood at Rifle Range Rd came during the rain or
+  within 21 hours of it stopping, and over 30 years of records the change misses none of the
+  floods the watch caught before, while typical watches drop from 58 to 36 hours. While the
+  rain has stopped the watch says so, and when it will end. Settings: 'dry_hours' and 'wet_mm'
+  in the rule's 'rain' settings.
 
 ## Changes in 0.17.2
 

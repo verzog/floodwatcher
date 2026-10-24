@@ -7,7 +7,9 @@
  *
  * Each rule watches upstream gauges: when any reaches its trigger height, flooding downstream
  * is "likely" (with the lead time and track record found in the history). If none has, heavy
- * rain at the rule's rain gauges gives an earlier, less certain "watch".
+ * rain at the rule's rain gauges gives an earlier, less certain "watch". The watch ends once it
+ * has been dry for 'dry_hours' with none of the trigger gauges rising: in the history, floods
+ * came during the rain or soon after it stopped (at most 21 hours after, at Rifle Range Rd).
  *
  * Rules are turned into marker-like entries so the alert code (start times, all clear,
  * notifications, map-area filtering) treats them like gauge alerts.
@@ -62,6 +64,8 @@ function sfw_potential_markers(array $items, array $byid, int $now, array $rules
             ];
         } elseif (!empty($r['rain'])) {
             $totals = [];
+            $hourly = [];   // Hour => rain at each gauge, for when the rain stopped.
+            $latest = 0;    // The rain gauges' newest reading (state gauges lag an hour or two).
             foreach ($r['rain']['ids'] as $id) {
                 $pts = $byid[$id] ?? [];
                 $it = $items[$id] ?? null;
@@ -70,18 +74,52 @@ function sfw_potential_markers(array $items, array $byid, int $now, array $rules
                     foreach ($pts as [$t, $v]) {
                         if ($t > $now - 72 * 3600 && $t <= $now) {
                             $sum += $v;
+                            $hour = intdiv($t - 1, 3600) * 3600;
+                            $hourly[$hour] = ($hourly[$hour] ?? 0.0) + $v;
+                            $latest = max($latest, $t);
                         }
                     }
                     $totals[] = $sum;
                 }
             }
-            if ($totals && array_sum($totals) / count($totals) >= (float) $r['rain']['mm_72h']) {
-                $found = [
-                    'kind'  => 'potential_rain',
-                    'level' => 'watch',
-                    'text'  => sprintf('heavy rain in the catchment above %s: %.0f mm in 72 hours (average of %d gauges). %s',
-                        $r['place'], array_sum($totals) / count($totals), count($totals), $r['rain']['record']),
-                ];
+            $mean = $totals ? array_sum($totals) / count($totals) : 0.0;
+            if ($totals && $mean >= (float) $r['rain']['mm_72h']) {
+                // How long it has been dry: hours since the last hour with at least 'wet_mm' on
+                // average across the gauges.
+                $wetmm = (float) ($r['rain']['wet_mm'] ?? 1.0);
+                $lastwet = null;
+                foreach ($hourly as $hour => $mm) {
+                    if ($mm / count($totals) >= $wetmm) {
+                        $lastwet = max($lastwet ?? 0, $hour + 3600);
+                    }
+                }
+                $dry = $lastwet === null ? 72.0 : max(0.0, (min($now, $latest) - $lastwet) / 3600);
+                // Any trigger gauge rising keeps the watch on, however long it has been dry.
+                $rising = [];
+                foreach ($r['triggers'] as $t) {
+                    foreach ($t['ids'] as $id) {
+                        $it = $items[$id] ?? null;
+                        if ($it && empty($it['note']) && in_array($it['trend'] ?? '', ['rising', 'rising_fast'], true)) {
+                            $rising[$t['label']] = true;
+                        }
+                    }
+                }
+                $dryhours = (float) ($r['rain']['dry_hours'] ?? 30);
+                if ($dry < $dryhours || $rising) {
+                    $after = '';
+                    if ($rising) {
+                        $after = ' ' . implode(' and ', array_keys($rising)) . (count($rising) > 1 ? ' are' : ' is') . ' rising.';
+                    } elseif ($dry >= 3) {
+                        $after = sprintf(' The rain stopped about %d hours ago; this watch ends %d hours after the rain '
+                            . 'stops if the creeks above stay steady.', (int) round($dry), (int) $dryhours);
+                    }
+                    $found = [
+                        'kind'  => 'potential_rain',
+                        'level' => 'watch',
+                        'text'  => sprintf('heavy rain in the catchment above %s: %.0f mm in 72 hours (average of %d gauges).%s %s',
+                            $r['place'], $mean, count($totals), $after, $r['rain']['record']),
+                    ];
+                }
             }
         }
         $out[] = [

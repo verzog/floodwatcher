@@ -265,6 +265,11 @@ return [
             'rain'     => [
                 'ids'    => ['Q143203C-R', 'Q143212A-R'], // Helidon and Tenthill (state gauges).
                 'mm_72h' => 70,
+                // The watch ends after this many dry hours (under 'wet_mm' an hour on average)
+                // with no trigger gauge rising. Since 1995, floods at Rifle Range Rd came at most
+                // 21 hours after the rain stopped; 30 leaves a margin.
+                'dry_hours' => 30,
+                'wet_mm'    => 1.0,
                 'record' => 'Since 1995, 12 of 14 floods at Rifle Range Rd followed this much rain; it also happened 24 times without a flood there',
             ],
         ],
