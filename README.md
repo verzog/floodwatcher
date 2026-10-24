@@ -27,6 +27,16 @@ The rest of this file covers the older manual set-up in My Webapp.
 - A gauge whose reading is doubted (a sudden jump, or a gauge marked as possibly faulty) no longer
   shows "Major flooding" on its dial, "Rising fast" as its trend, or a flood level in the nearest
   gauges list of a map popup; they say the reading may be faulty instead.
+- **Phones:** the map takes most of the screen, with a slimmer header and notice. The predictive
+  alert starts as a one-line bar and the alerts as a button (which pulses when something new
+  arrives) instead of covering the map; tap either to open it. Open, they take at most 40% of
+  the screen and scroll inside.
+- Buttons on touch screens are finger-sized (44 by 40 px or more).
+- A minimised prediction stays minimised after a reload, and alerts already seen don't open the
+  card again on a reload. A new or worse one still does (on a computer).
+- When a popup opens, the alert panels step aside if they'd cover it, until it's closed.
+- Popups are sized to fit the map (phones, and narrow windows beside the side panel), so their
+  close button is never off the edge.
 
 ## Changes in 0.17.1
 

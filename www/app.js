@@ -189,6 +189,14 @@
   state.areaLayer = L.layerGroup().addTo(map);
   state.predictLayer = L.layerGroup().addTo(map);
 
+  // Popups narrow enough to fit the map beside the 56 px kept clear for the buttons on the left
+  // (above), plus Leaflet's own margins, so their close button is never off the edge. Measured
+  // from the map, not the window: beside the side panel the map can be narrow too.
+  function popupWidth() {
+    return Math.max(200, Math.min(300, map.getSize().x - 116));
+  }
+  L.Popup.mergeOptions({ autoPanPadding: L.point(12, 12) });
+
   /** Build the marker for a river or creek gauge. */
   function streamMarker(s) {
     var suspect = !!s.note;
@@ -1239,7 +1247,7 @@
         });
       }
     }
-    L.popup({ maxWidth: 300, keepInView: true, autoPanPadding: [12, 12] })
+    L.popup({ maxWidth: popupWidth() })
       .setLatLng(latlng).setContent(box).openOn(map);
   }
 
@@ -1513,6 +1521,26 @@
     });
   }
 
+  // Phones and narrow windows: the panels start small so they don't cover the map.
+  var SMALL_SCREEN = window.matchMedia ? window.matchMedia('(max-width: 760px)') : { matches: false };
+
+  /** Read a remembered value from this browser (null if none, or storage is blocked). */
+  function memGet(key) {
+    try { return JSON.parse(window.localStorage.getItem(key) || 'null'); } catch (e) { return null; }
+  }
+
+  /** Remember a value in this browser (silently skipped if storage is blocked). */
+  function memSet(key, value) {
+    try { window.localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* Kept for this page only. */ }
+  }
+
+  /** Minimise or open the predictive panel, remembering a minimised prediction across reloads. */
+  function setPredictCollapsed(collapsed) {
+    state.predictCollapsed = collapsed;
+    memSet('floodwatcher.predictMinimised', collapsed ? state.predictKey : null);
+    showPredictions();
+  }
+
   /** Fill the predictive panel: active predictions, or a quiet line, plus the on/off switch. */
   function showPredictions() {
     var box = state.predict;
@@ -1525,6 +1553,14 @@
     state.predictLayer.clearLayers();
     var worst = active.some(function (a) { return a.level === 'likely'; }) ? 'likely' : active.length ? 'watch' : null;
     box.className = 'predict' + (!on ? ' off' : worst ? ' active predict-' + worst : ' quiet');
+    // A new or worse prediction opens the panel, except: one this browser already minimised stays
+    // minimised (even after a reload), and on a phone it starts as the one-line bar so the map
+    // stays visible.
+    var key = active.map(function (a) { return a.id + ':' + a.level; }).join(',');
+    if (key !== state.predictKey) {
+      state.predictCollapsed = !!key && (memGet('floodwatcher.predictMinimised') === key || SMALL_SCREEN.matches);
+    }
+    state.predictKey = key;
 
     var head = el('div', 'predict-head');
     head.appendChild(el('span', 'predict-title', on && active.length ? 'Predictive flood alert' : 'Predictive flood alerts'));
@@ -1537,8 +1573,7 @@
       min.setAttribute('aria-label', state.predictCollapsed ? 'Show the predictive alert' : 'Minimise the predictive alert');
       min.addEventListener('click', function (e) {
         L.DomEvent.stop(e); // The panel is redrawn; don't let the click fall through to the map.
-        state.predictCollapsed = !state.predictCollapsed;
-        showPredictions();
+        setPredictCollapsed(!state.predictCollapsed);
       });
       tools.appendChild(min);
     }
@@ -1552,10 +1587,6 @@
     head.appendChild(tools);
     box.appendChild(head);
     if (!on) { return; }
-    // New or worse predictions open the panel again even if it was minimised.
-    var key = active.map(function (a) { return a.id + ':' + a.level; }).join(',');
-    if (key && key !== state.predictKey) { state.predictCollapsed = false; }
-    state.predictKey = key;
 
     if (!active.length) {
       box.appendChild(el('div', 'predict-none', 'None active. Predictions are worked out from upstream gauges and rain, ' +
@@ -1571,7 +1602,7 @@
         return (a.level === 'likely' ? 'Flooding likely: ' : 'Watch: ') + a.name.split(' (')[0];
       }).join(' · '));
       line.type = 'button';
-      line.addEventListener('click', function (e) { L.DomEvent.stop(e); state.predictCollapsed = false; showPredictions(); });
+      line.addEventListener('click', function (e) { L.DomEvent.stop(e); setPredictCollapsed(false); });
       box.appendChild(line);
     }
     active.forEach(function (a) {
@@ -1742,7 +1773,7 @@
     if (v.warnings.length) { parts.push(v.warnings.length + ' BoM warning' + (v.warnings.length === 1 ? '' : 's')); }
     if (v.alerts.length) { parts.push(v.alerts.length + ' gauge alert' + (v.alerts.length === 1 ? '' : 's')); }
     pill.textContent = here ? '⚠ ' + parts.join(' · ') : 'No alerts here' + (v.elsewhere ? ' (' + v.elsewhere + ' elsewhere)' : '');
-    pill.className = 'alert-pill' + (worst ? ' lvl-' + worst : ' quiet');
+    pill.className = 'alert-pill' + (worst ? ' lvl-' + worst : ' quiet') + (state.alertPulse ? ' pulse' : '');
     state.alertNone = v.total === 0 && !watchList().length;
     applyAlertVisibility();
     showPredictions();
@@ -1762,8 +1793,24 @@
     clearTimeout(state.alertTimer);
   }
 
-  /** Open the card for a while, then shrink it back to the button unless it's being used. */
+  /**
+   * Something new: open the card for a while, then shrink it back to the button unless it's being
+   * used. On a phone the card would cover most of the map, so the button pulses instead.
+   */
   function flashAlerts() {
+    if (SMALL_SCREEN.matches) {
+      var pill = state.alertPill;
+      pill.classList.remove('pulse');
+      void pill.offsetWidth; // Restart the animation.
+      pill.classList.add('pulse');
+      state.alertPulse = true; // Kept when the button is redrawn, until the pulsing ends.
+      pill.addEventListener('animationend', function done() {
+        state.alertPulse = false;
+        pill.classList.remove('pulse');
+        pill.removeEventListener('animationend', done);
+      });
+      return;
+    }
     setAlertsOpen(true);
     state.alertTimer = setTimeout(function closeLater() {
       var c = state.alertCard;
@@ -1814,6 +1861,33 @@
   applyAlertVisibility();
   showPredictions();
 
+  // Once a popup has opened: make sure it's fully on screen, and if the panels would cover it,
+  // they step aside until it closes.
+  map.on('popupopen', function (e) {
+    var box = state.alertControl.getContainer();
+    // Popups made when the page loaded (cameras, roads) get the width that fits the map now.
+    if (e.popup.options.maxWidth !== popupWidth()) {
+      e.popup.options.maxWidth = popupWidth();
+      e.popup.update();
+    }
+    var settle = function () {
+      var popup = e.popup.getElement();
+      if (!popup || !map.hasLayer(e.popup)) { return; }
+      // Leaflet keeps the size the popup had when it opened; have it measure again (and move the
+      // map to fit) now that its content may have grown.
+      e.popup.update();
+      var a = popup.getBoundingClientRect();
+      var b = box.getBoundingClientRect();
+      var overlap = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      box.classList.toggle('stepped-aside', overlap);
+    };
+    // After the map has panned to fit the popup, and again once late details (the council's flood
+    // likelihood) have filled in and made it bigger.
+    setTimeout(settle, 350);
+    setTimeout(settle, 1500);
+  });
+  map.on('popupclose', function () { state.alertControl.getContainer().classList.remove('stepped-aside'); });
+
   // Re-filter when the map moves (after it settles).
   var alertMoveTimer = null;
   map.on('moveend', function () {
@@ -1832,8 +1906,11 @@
         var keys = (data.warnings || []).map(function (w) { return 'w:' + w.id + ':' + w.issued; })
           .concat((data.alerts || []).filter(function (a) { return !isPrediction(a); })
             .map(function (a) { return 'a:' + a.id + ':' + a.level; }));
+        var seen = memGet('floodwatcher.alertsSeen') || [];
+        seen.forEach(function (k) { state.alertSeen[k] = true; });
         var fresh = keys.some(function (k) { return !state.alertSeen[k]; });
         keys.forEach(function (k) { state.alertSeen[k] = true; });
+        memSet('floodwatcher.alertsSeen', keys); // Only the current ones: the list never grows.
         showAlerts();
         var v = alertsInView();
         if (fresh && v.warnings.length + v.alerts.length > 0) { flashAlerts(); }

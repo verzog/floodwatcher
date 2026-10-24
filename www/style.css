@@ -1345,7 +1345,29 @@ a { color: var(--accent); }
 @media (max-width: 760px) {
   html, body { height: auto; }
   .layout { flex-direction: column; }
-  .map { flex: none; height: 55vh; }
+  /* Most of the screen for the map (svh: the height with the browser's toolbars showing). */
+  .map {
+    flex: none;
+    height: 70vh;
+    height: 70svh;
+    min-height: 360px;
+  }
+  .topbar { padding: 6px 12px; }
+  .brand h1 { font-size: 1.1rem; }
+  .freshness { font-size: 0.78rem; }
+  .notice { padding: 5px 12px; font-size: 0.78rem; line-height: 1.35; }
+  /* Panels over the map: never more than 40% of the screen, scrolling inside if longer. */
+  .predict, .alert-card {
+    width: calc(100vw - 96px);
+    max-height: 40vh;
+    max-height: 40svh;
+    overflow-y: auto;
+  }
+  .predict.collapsed .predict-line {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
   .panel {
     width: 100%;
     border-left: none;
@@ -1415,4 +1437,26 @@ a { color: var(--accent); }
   margin: 0.4rem 0;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+/* ---------- Touch screens: buttons big enough for a finger ---------- */
+@media (pointer: coarse) {
+  .predict-min, .alert-min, .predict-switch {
+    min-width: 44px;
+    min-height: 40px;
+  }
+  .alert-pill { min-height: 44px; }
+}
+
+/* A new warning or alert on a phone: the button pulses instead of the card covering the map. */
+.alert-pill.pulse { animation: pill-pulse 1.2s ease-in-out 4; }
+
+@keyframes pill-pulse {
+  0%, 100% { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); transform: scale(1); }
+  50% { box-shadow: 0 0 0 6px rgba(230, 180, 37, 0.45); transform: scale(1.06); }
+}
+
+/* While a popup the panels would cover is open, they step aside. */
+.alert-control.stepped-aside {
+  visibility: hidden;
 }
