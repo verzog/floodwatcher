@@ -113,6 +113,54 @@ function sfw_value_at(array $points, int $time): ?float
 }
 
 /**
+ * The latest sudden jump in a river level that the level has stayed up after: a rise of at least
+ * $jump metres between two readings no more than $minutes apart. Whether to believe it is decided
+ * afterwards (other gauges on the same river, or more readings at the new level).
+ *
+ * @param array<int, array{0: int, 1: float}> $points Oldest first.
+ * @return array{t: int, from: float, rise: float, minutes: int, after: int}|null The jump (with how
+ *     many readings came after it), or null if there's none, or the level has come back down.
+ */
+function sfw_spike_check(array $points, float $jump, int $minutes): ?array
+{
+    $n = count($points);
+    for ($j = $n - 1; $j >= 1; $j--) {
+        [$t0, $v0] = $points[$j - 1];
+        [$t1, $v1] = $points[$j];
+        if ($v1 - $v0 < $jump || $t1 - $t0 > 60 * $minutes) {
+            continue;
+        }
+        // Has the level stayed up (at least half the jump) since?
+        for ($k = $j; $k < $n; $k++) {
+            if ($points[$k][1] < $v0 + $jump / 2) {
+                return null; // It came back down: the jump is over, the latest reading is fine.
+            }
+        }
+        return ['t' => $t1, 'from' => $v0, 'rise' => round($v1 - $v0, 2),
+            'minutes' => max(1, intdiv($t1 - $t0, 60)), 'after' => $n - 1 - $j];
+    }
+    return null;
+}
+
+/**
+ * How much a gauge rose around a time: its highest reading from 3 hours before to 3 hours after,
+ * less its level 3 hours before (0 if unknown).
+ *
+ * @param array<int, array{0: int, 1: float}> $points Oldest first.
+ */
+function sfw_rise_around(array $points, int $time): float
+{
+    $base = sfw_value_at($points, $time - 3 * 3600);
+    $top = null;
+    foreach ($points as [$t, $v]) {
+        if ($t >= $time - 3 * 3600 && $t <= $time + 3 * 3600) {
+            $top = $top === null ? $v : max($top, $v);
+        }
+    }
+    return ($base === null || $top === null) ? 0.0 : $top - $base;
+}
+
+/**
  * Total rain in readings timed after $since and up to $until.
  *
  * @param array<int, array{0: int, 1: float}> $points
@@ -223,6 +271,11 @@ foreach ($sensors as $s) {
         ];
         $item['flood_class'] = sfw_flood_class($item['latest'], $item['flood']['minor'],
             $item['flood']['moderate'], $item['flood']['major']);
+        // A sudden jump in the level, checked against other gauges further down this script.
+        $item['spike'] = false;
+        $item['jump'] = $s['sensor_type'] === 'stream' && $item['note'] === null
+            ? sfw_spike_check($points, (float) $config['alerts']['spike_m'], (int) $config['alerts']['spike_minutes'])
+            : null;
         // Council and BoM gauges report changes only, so silence is normal; state gauges
         // report on a schedule, so a long silence means a problem.
         $item['stale'] = $src === 'qld' && ($last === null || $last[0] < time() - $stalemins * 60);
@@ -275,6 +328,43 @@ foreach ($sensors as $s) {
         $item['series'] = ['type' => 'rain', 'start' => $firsthour, 'hourly' => $hourly];
     }
     $items[$id] = $item;
+}
+
+// ---------- Doubt sudden jumps that nothing else backs up ----------
+
+// A river gauge whose level jumps several metres between two readings (see 'spike_m') is believed
+// if another gauge on the same river within 'spike_km' rose too around that time. With no such
+// neighbour, it's believed once 'spike_confirm' more readings have stayed near the new level.
+// Otherwise it's probably a faulty reading: shown with a "?", and no alert.
+$spikekm = (float) ($config['alerts']['spike_km'] ?? 25);
+foreach ($items as $id => $it) {
+    $jump = $it['jump'] ?? null;
+    unset($items[$id]['jump']);
+    if ($jump === null) {
+        continue;
+    }
+    $river = sfw_waterway($it['name']);
+    $neighbours = 0;
+    $backed = false;
+    foreach ($items as $oid => $o) {
+        if ($oid === $id || $o['type'] !== 'stream' || $o['note'] !== null || $o['source'] === 'wu'
+            || sfw_waterway($o['name']) !== $river
+            || sfw_distance_m($it['lat'], $it['lon'], $o['lat'], $o['lon']) > 1000 * $spikekm) {
+            continue;
+        }
+        $neighbours++;
+        if (sfw_rise_around($byid[$oid] ?? [], $jump['t']) >= 0.3) {
+            $backed = true;
+            break;
+        }
+    }
+    if ($backed || ($neighbours === 0 && $jump['after'] >= (int) $config['alerts']['spike_confirm'])) {
+        continue;
+    }
+    $items[$id]['spike'] = true;
+    $items[$id]['note'] = sprintf('jumped %.2f m in %d minutes at %s, which is probably a faulty reading (%s). '
+        . 'No alerts until it is confirmed.', $jump['rise'], $jump['minutes'], gmdate('H:i', $jump['t'] + 36000),
+        $neighbours ? 'other gauges on this river didn\'t rise' : 'waiting for more readings');
 }
 
 // ---------- Check community rain gauges against official ones nearby ----------

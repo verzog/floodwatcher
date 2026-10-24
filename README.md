@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.17
+# Flood Watcher (SEQ Flood Watch) — version 0.17.1
 
 A community flood dashboard for the Brisbane River catchment. It collects rainfall and river
 heights from three public sources, stores them, and shows them on a map.
@@ -21,6 +21,19 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.17.1
+
+- **Sudden jumps in a river level are checked before they raise an alert.** A rise of 3 m or
+  more between two readings (up to 90 minutes apart) is believed only if another gauge on the
+  same river within 25 km rose too, or, where there's no such gauge, once two more readings stay
+  at the new level. Until then the gauge shows "?" with a note, and has no alert or notification.
+  On 24/10/2026 Brassall (Hancocks Bridge) jumped from 2 m to 15 m in one reading while Ipswich
+  was falling, and raised a false "major flooding" alert. Settings: 'spike_m', 'spike_minutes',
+  'spike_km' and 'spike_confirm' under 'alerts' in lib/defaults.php.
+
+YunoHost: `yunohost app upgrade floodwatcher -u https://github.com/verzog/floodwatcher_ynh`.
+My Webapp: unzip over the old files as below; no database changes.
 
 ## Upgrading a My Webapp install from 0.16.x to 0.17
 

@@ -14,6 +14,10 @@
  *
  * A gauge that stops reporting keeps its alert, marked as not reporting, rather than being
  * called all clear: silence is not good news.
+ *
+ * A gauge whose level has just jumped implausibly ('spike', see sfw_spike_check in
+ * build_json.php) has no alert, and an alert it already had is dropped without an "all clear":
+ * there was never a flood to clear.
  */
 
 declare(strict_types=1);
@@ -94,7 +98,12 @@ function sfw_alerts_update(array $markers, array $state, int $now, array $opts):
     }
 
     $next = [];
+    $doubted = []; // Gauges with an unconfirmed jump: their alerts end without an all clear.
     foreach ($markers as $m) {
+        if (!empty($m['spike'])) {
+            $doubted[$m['id']] = true;
+            continue;
+        }
         $quiet = !empty($m['stale']) || !empty($m['note']);
         $prev = $active[$m['id']] ?? null;
         $found = $quiet ? null : sfw_alert_for($m, $opts);
@@ -131,7 +140,7 @@ function sfw_alerts_update(array $markers, array $state, int $now, array $opts):
 
     // Alerts that have ended become "all clear" notes for a few hours.
     foreach ($active as $id => $prev) {
-        if (!isset($next[$id])) {
+        if (!isset($next[$id]) && !isset($doubted[$id])) {
             $cleared[] = [
                 'id'    => $id,
                 'name'  => $prev['name'],

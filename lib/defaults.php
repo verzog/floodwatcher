@@ -275,6 +275,15 @@ return [
         'near_minor_m'  => 0.5,   // "Approaching": rising and within this of the minor flood level.
         'rising_fast'   => true,  // Also alert when a (non-tidal) gauge is rising fast.
         'cleared_hours' => 6,     // Show "all clear" notes for this long.
+        // A river level that jumps at least 'spike_m' between two readings no more than
+        // 'spike_minutes' apart is treated as a possibly faulty reading (no alert, shown with a
+        // "?") unless another gauge on the same river within 'spike_km' rose too, or (with no
+        // such gauge) 'spike_confirm' more readings stay near the new level. Stops one bad
+        // reading (such as Brassall's 13 m jump on 24/10/2026) from raising a flood alert.
+        'spike_m'       => 3.0,
+        'spike_minutes' => 90,
+        'spike_km'      => 25,
+        'spike_confirm' => 2,
     ],
 
     'dashboard' => [
