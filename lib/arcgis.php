@@ -1,0 +1,154 @@
+<?php
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Flood Watcher. Copyright (C) 2026 Vernon Spain. See LICENSE.
+
+/**
+ * Helpers for downloading polygon layers from ArcGIS REST map services (council and state
+ * flood maps) and packing them into small files the web page can draw.
+ *
+ * Packed format, one file per layer:
+ *   {"f": [ {"b": [w, s, e, n], "r": [ring, ring, ...]}, ... ]}
+ * Coordinates are whole numbers of 1/100000 degree (about 1 m). Each ring is a flat list
+ * [x0, y0, dx1, dy1, dx2, dy2, ...]: the first point, then each point's change from the one
+ * before. Rings are filled with the even-odd rule, so holes need no special marking.
+ */
+
+declare(strict_types=1);
+
+const SFW_ARC_SCALE = 100000;
+
+/**
+ * Ask a layer for the ids of its shapes (all of them, or those matching $where).
+ *
+ * @return int[]
+ */
+function sfw_arc_ids(string $layerurl, string $where = '1=1'): array
+{
+    $url = rtrim($layerurl, '/') . '/query?' . http_build_query([
+        'where'         => $where,
+        'returnIdsOnly' => 'true',
+        'f'             => 'json',
+    ]);
+    $data = sfw_http_get_json($url);
+    if (isset($data['error'])) {
+        throw new RuntimeException('Map service error: ' . json_encode($data['error']));
+    }
+    $ids = array_map('intval', $data['objectIds'] ?? []);
+    sort($ids);
+    return $ids;
+}
+
+/**
+ * Split shape ids into groups for requests: at most $max ids, and short enough that the
+ * request address stays under $maxchars (some servers, such as Brisbane City Council's,
+ * refuse addresses longer than about 2,000 characters).
+ *
+ * @param int[] $ids
+ * @return array<int, int[]>
+ */
+function sfw_arc_chunks(array $ids, int $max, int $maxchars = 1200): array
+{
+    $chunks = [];
+    $current = [];
+    $len = 0;
+    foreach ($ids as $id) {
+        $add = strlen((string) $id) + 3; // The id plus an encoded comma.
+        if ($current && (count($current) >= $max || $len + $add > $maxchars)) {
+            $chunks[] = $current;
+            $current = [];
+            $len = 0;
+        }
+        $current[] = $id;
+        $len += $add;
+    }
+    if ($current) {
+        $chunks[] = $current;
+    }
+    return $chunks;
+}
+
+/**
+ * Download the shapes with the given ids, simplified, in longitude/latitude.
+ *
+ * @param int[] $ids
+ * @return array<int, mixed> Esri JSON features.
+ */
+function sfw_arc_features(string $layerurl, array $ids, float $offset): array
+{
+    $url = rtrim($layerurl, '/') . '/query?' . http_build_query([
+        'objectIds'          => implode(',', $ids),
+        'outFields'          => '',
+        'returnGeometry'     => 'true',
+        'outSR'              => 4326,
+        'maxAllowableOffset' => $offset,
+        'geometryPrecision'  => 6,
+        'f'                  => 'json',
+    ]);
+    $data = sfw_http_get_json($url);
+    if (isset($data['error'])) {
+        throw new RuntimeException('Map service error: ' . json_encode($data['error']));
+    }
+    return $data['features'] ?? [];
+}
+
+/**
+ * Approximate area of a ring in square metres (good enough near Brisbane for dropping specks).
+ *
+ * @param array<int, array<int, float>> $ring Points as [lon, lat].
+ */
+function sfw_arc_ring_m2(array $ring): float
+{
+    $sum = 0.0;
+    $n = count($ring);
+    for ($i = 0, $j = $n - 1; $i < $n; $j = $i++) {
+        $sum += ($ring[$j][0] * $ring[$i][1]) - ($ring[$i][0] * $ring[$j][1]);
+    }
+    $lat = deg2rad((float) ($ring[0][1] ?? -27.5));
+    return abs($sum / 2) * 111320.0 * 111320.0 * cos($lat);
+}
+
+/**
+ * Pack one Esri polygon into the compact format, or return null if nothing is left after
+ * dropping rings smaller than $minm2.
+ *
+ * @param array<string, mixed> $geometry Esri polygon geometry with "rings".
+ * @return array<string, mixed>|null
+ */
+function sfw_arc_pack(array $geometry, float $minm2): ?array
+{
+    $rings = [];
+    $w = PHP_INT_MAX;
+    $s = PHP_INT_MAX;
+    $e = PHP_INT_MIN;
+    $n = PHP_INT_MIN;
+    foreach ($geometry['rings'] ?? [] as $ring) {
+        if (count($ring) < 4 || sfw_arc_ring_m2($ring) < $minm2) {
+            continue;
+        }
+        $flat = [];
+        $px = 0;
+        $py = 0;
+        foreach ($ring as $k => $pt) {
+            $x = (int) round($pt[0] * SFW_ARC_SCALE);
+            $y = (int) round($pt[1] * SFW_ARC_SCALE);
+            if ($k > 0 && $x === $px && $y === $py) {
+                continue; // Repeated point after rounding.
+            }
+            $flat[] = $k === 0 ? $x : $x - $px;
+            $flat[] = $k === 0 ? $y : $y - $py;
+            $px = $x;
+            $py = $y;
+            $w = min($w, $x);
+            $e = max($e, $x);
+            $s = min($s, $y);
+            $n = max($n, $y);
+        }
+        if (count($flat) >= 8) {
+            $rings[] = $flat;
+        }
+    }
+    if (!$rings) {
+        return null;
+    }
+    return ['b' => [$w, $s, $e, $n], 'r' => $rings];
+}

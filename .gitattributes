@@ -1,0 +1,7 @@
+# Unix line endings everywhere (Windows checkouts would otherwise add CR).
+* text=auto eol=lf
+*.png binary
+# Not needed on a server: kept out of release archives.
+/.github export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore

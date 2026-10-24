@@ -1,0 +1,85 @@
+# How the main river gauges connect: each gauge, and the next gauge downstream of it.
+# Used for the "Flood event upstream" notice in a gauge's details.
+#
+# id          the gauge's id on the map (B = BoM, Q = state). Several ids for the same spot can
+#             be given with | between them (for example two gauges at Amberley).
+# downstream  the next gauge downstream (blank for the last one).
+# dam         "dam" if the downstream gauge is a dam: water above it is held back, so its arrival
+#             depends on the dam's releases and no travel time is given past it.
+# note        anything to check. "check" = where the creek joins is not certain; please correct
+#             it if you know the river better.
+id,downstream,dam,note
+# ---- Lockyer Creek ----
+B540527-H,B540143-H,,Murphys Creek at Spring Bluff; check: joins Lockyer Creek near Helidon
+B540566-H,B540143-H,,Upper Lockyer
+B540143-H,B540156-H,,Helidon to Gatton
+B540405-H,B540156-H,,Flagstone Creek; joins below Helidon
+B540406-H,B540156-H,,Ma Ma Creek; check: joins near Grantham
+B540152-H,B540149-H,,Tenthill Creek; check: may join above the Gatton gauge
+B540156-H,B540149-H,,Gatton to Glenore Grove
+B540149-H,B040817-H,,Glenore Grove to Rifle Range Rd
+B040817-H,B540701-H,,Rifle Range Rd to Clarendon
+B540701-H,B540153-H,,Clarendon to O'Reilly's Weir
+B540153-H,B540182-H,,Lockyer Creek meets the Brisbane River above Lowood
+# ---- Laidley Creek ----
+B540789-H,B040835-H,,Thornton
+B040835-H,B540158-H,,Mulgowie
+B540158-H,B540529-H,,Showground Weir
+B540529-H,B040817-H,,Laidley Creek; check: joins Lockyer Creek near Glenore Grove
+# ---- Upper Brisbane River ----
+B540769-H,B540146-H,,Cooyar Creek
+B540146-H,B540261-H,,Cooyar Creek; check: joins above Linville
+B540261-H,B540188-H,,Linville
+B540188-H,B540139-H,,Devon Hills
+B540141-H,B540139-H,,Emu Creek; joins above Gregors Creek
+B540446-H,B540139-H,,Maronghi Creek
+B540139-H,B540177-H,dam,Gregors Creek into Lake Wivenhoe
+B540750-H,B540148-H,,Cressbrook Dam
+B540148-H,B540177-H,dam,Cressbrook Creek into Lake Wivenhoe
+B540441-H,B540177-H,dam,Esk Creek into Lake Wivenhoe
+# ---- Stanley River ----
+B540059-H,B540338-H,,Peachester
+B540338-H,B040820-H,dam,Woodford into Lake Somerset
+B540373-H,B040820-H,dam,Kilcoy Creek into Lake Somerset
+B540560-H,B540177-H,dam,Reedy Creek; check: may flow into Lake Somerset instead
+B040820-H,B540177-H,dam,Somerset Dam into Lake Wivenhoe
+# ---- Brisbane River below Wivenhoe ----
+B540177-H,B540178-H,,Wivenhoe Dam headwater to tailwater
+B540178-H,B540182-H,,Wivenhoe Dam releases
+B540182-H,B540150-H,,Lowood
+B540150-H,B540257-H,,Savages Crossing
+B540257-H,B540256-H,,Burtons Bridge
+B540256-H,B540199-H,,Kholo Bridge
+B540199-H,B540063-H,,Mt Crosby
+B540063-H,B040812-H,,Colleges Crossing
+B040812-H|B540201-H,B540670-H,,Moggill
+B540670-H,B540192-H|B540682-H,,Goodna
+B540192-H|B540682-H,B540683-H,,Jindalee
+B540683-H,B540684-H|B540198-H,,St Lucia
+B540684-H|B540198-H,B540685-H,,City
+# ---- Bremer River ----
+B540157-H,B540314-H,,Adams Bridge
+B540314-H,B540388-H,,Spressers Bridge
+B540388-H,B540669-H,,Rosewood
+B540669-H,B540147-H,,Seven Mile Bridge
+B540147-H,B540504-H,,Five Mile Bridge
+B540504-H,B040838-H,,Walloon
+B040838-H,B040836-H,,Three Mile Bridge
+B040836-H,B040831-H,,One Mile Bridge
+B040831-H,B540661-H,,Ipswich
+B540661-H,B040812-H|B540201-H,,Bremer River meets the Brisbane River above Moggill
+# ---- Western Creek ----
+B540064-H,B540194-H,,Grandchester
+B540194-H,B540313-H,,Kuss Road
+B540313-H,B540669-H,,Western Creek; check: joins the Bremer near Rosewood
+# ---- Warrill Creek ----
+B540549-H,B540058-H|B540151-H|B540057-H,,Toohills Crossing
+B540058-H|B540151-H|B540057-H,B540754-H,,Kalbar Weir
+B540754-H,B540387-H,,Kents Lagoon
+B540387-H,B540316-H,,Harrisville
+B540316-H,B140024-H,,Churchbank Weir
+B140024-H,B540180-H|B040816-H,,Willowbank
+B540180-H|B040816-H,B040838-H,,Warrill Creek; check: joins the Bremer above Three Mile Bridge
+# ---- Purga Creek ----
+B540065-H,B540062-H,,Peak Crossing
+B540062-H,B040838-H,,Purga Creek; check: joins Warrill Creek near Amberley

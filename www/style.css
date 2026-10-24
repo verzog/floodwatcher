@@ -1,0 +1,1418 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later. Flood Watcher. Copyright (C) 2026 Vernon Spain. See LICENSE. */
+/*
+ * Flood Watcher styles.
+ * Colours are tokens on :root and switch with the device's light/dark setting.
+ * Palette: cool river tones; flood colours follow BoM's minor/moderate/major convention.
+ */
+
+:root {
+  --bg: #eef2f3;          /* Wet slate: page background. */
+  --surface: #ffffff;
+  --ink: #17252e;         /* Deep river: main text. */
+  --muted: #5e6e78;
+  --line: #d5dde1;
+  --accent: #2462a3;      /* Links and focus. */
+  --water: #2f7fb8;       /* River levels and rain. */
+  --water-soft: #cfe3f1;
+  --notice-bg: #fff4d6;
+  --notice-line: #e6c56a;
+  --alert-bg: #fbe7e7;
+  --alert-line: #dc9a9a;
+  --alert-ink: #7c1d1d;
+  --rising-fast: #c62828;
+  --rising: #e08a00;
+  --steady: #2e8b57;
+  --falling: #1f6fd1;
+  --unknown: #a5adb8;
+  --suspect: #b9bec6;
+  --flood-minor: #e8b425;
+  --flood-moderate: #e0701f;
+  --flood-major: #a3212a;
+  --rain-1: #bfe3f7;
+  --rain-2: #7cc4ee;
+  --rain-3: #3c9ad8;
+  --rain-4: #2f62b0;
+  --rain-5: #5b3fa6;
+  --dial-track: #e3e9ec;
+  --ov-floodplain: #b8477a; /* Flood map shading: state broad-scale floodplain. */
+  --ov-areas: #2f7fb8;     /* Council flood areas. */
+  --ov-flood2011: #7b4fc9;
+  --ov-flood2022: #0f9488;
+  --ov-flood1974: #a8641f;
+  --ov-catchment: #17252e; /* Catchment boundary line. */
+  --predict: #5b2a86;      /* Predictive flood alerts: their own colour, unlike flood levels. */
+  --predict-bg: #5b2a86;
+  --predict-soft: #efe6f7;
+  --ov-default: #5e6e78;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ov-floodplain: #e07aa8;
+    --ov-catchment: #e6eef2;
+    --predict: #c39cf0;
+    --predict-bg: #4a2270;
+    --predict-soft: #2a1d38;
+    --ov-areas: #5aa9e0;
+    --ov-flood2011: #b08cf0;
+    --ov-flood2022: #3cc8b8;
+    --ov-flood1974: #e09a55;
+    --bg: #0f1a21;        /* Night river. */
+    --surface: #16242d;
+    --ink: #e6eef2;
+    --muted: #93a6b2;
+    --line: #2a3b46;
+    --accent: #8cc2f0;
+    --water: #5aa9e0;
+    --water-soft: #1d3a50;
+    --notice-bg: #2d2714;
+    --notice-line: #6a5a24;
+    --alert-bg: #3a1c1f;
+    --alert-line: #7a3a3f;
+    --alert-ink: #f3c4c4;
+    --dial-track: #22323c;
+  }
+}
+
+/* Atkinson Hyperlegible (Braille Institute; SIL Open Font License), hosted with the site. */
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("vendor/atkinson-hyperlegible/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("vendor/atkinson-hyperlegible/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2");
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: var(--accent); }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Header and notices ---------- */
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand h1 {
+  display: inline;
+  margin: 0 10px 0 0;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+}
+
+.subtitle { color: var(--muted); }
+
+.freshness {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.notice, .alert {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid;
+}
+
+.notice {
+  background: var(--notice-bg);
+  border-color: var(--notice-line);
+}
+
+.alert {
+  background: var(--alert-bg);
+  border-color: var(--alert-line);
+  color: var(--alert-ink);
+  font-weight: 700;
+}
+
+/* ---------- Predictive flood alerts: their own panel, above the other alerts ---------- */
+
+.predict {
+  width: min(440px, calc(100vw - 90px));
+  margin-bottom: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid var(--predict);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.predict.off, .predict.quiet {
+  width: auto;
+  padding: 4px 6px 4px 12px;
+  border-width: 1.5px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.predict.quiet .predict-none, .predict.quiet .predict-ended { display: none; }
+
+.predict.quiet:hover .predict-none, .predict.quiet:focus-within .predict-none { display: block; }
+
+.predict.active {
+  color: #ffffff;
+  background: var(--predict-bg);
+  border-color: var(--predict);
+}
+
+.predict.collapsed { padding-bottom: 6px; }
+
+.predict-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.predict-min {
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
+  background: transparent;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+  padding: 0 8px 2px;
+  cursor: pointer;
+}
+
+.predict-line {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  text-align: left;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.predict.predict-watch {
+  color: var(--ink);
+  background: var(--predict-soft);
+}
+
+.predict-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.predict-title {
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--predict);
+}
+
+.predict.active .predict-title { color: #ffffff; font-size: 0.95rem; }
+.predict.predict-watch .predict-title { color: var(--predict); }
+
+.predict-switch {
+  min-width: 52px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--predict-bg);
+  border: 2px solid #ffffff;
+  border-radius: 14px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+.predict-switch[aria-checked="false"] {
+  color: var(--predict);
+  background: transparent;
+  border-color: var(--predict);
+}
+
+.predict-item {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.predict.predict-watch .predict-item { border-top-color: var(--line); }
+
+.predict-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.predict-chip {
+  padding: 1px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--predict-bg);
+  background: #ffffff;
+}
+
+.predict.predict-watch .predict-chip { color: #ffffff; background: var(--predict); }
+
+.predict-text { margin-top: 4px; }
+
+.predict-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+
+.predict-show {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: inherit;
+  background: transparent;
+  border: 1.5px solid currentColor;
+  border-radius: 8px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+.predict-note, .predict-none, .predict-ended {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  opacity: 0.9;
+}
+
+/* ---------- Alerts: a button and a card at the top right of the map ---------- */
+
+.alert-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font);
+}
+
+.alert-pill {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1c2430;
+  background: var(--surface);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 5px 12px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.alert-pill.quiet { color: var(--muted); font-weight: 400; }
+.alert-pill.lvl-minor { background: var(--flood-minor); }
+.alert-pill.lvl-moderate { background: var(--flood-moderate); }
+.alert-pill.lvl-major { background: var(--flood-major); color: #ffffff; }
+.alert-pill.lvl-watch { background: var(--rising); }
+.alert-pill.lvl-likely { background: #f6d77a; }
+.lvl-likely { background: #f6d77a; outline: 1.5px dashed #9a6a00; outline-offset: -1.5px; }
+.alert-pill.lvl-warning { background: var(--water); color: #ffffff; }
+
+.alert-card {
+  display: grid;
+  gap: 4px;
+  width: min(440px, calc(100vw - 90px));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 8px 12px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--flood-moderate);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.alert-card[hidden], .alert-pill[hidden] { display: none; }
+
+.alert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.alert-min {
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 10px 3px;
+  cursor: pointer;
+}
+
+.alert-body {
+  display: grid;
+  gap: 4px;
+}
+
+.alert-none { margin: 2px 0; color: var(--muted); }
+
+.warnings {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.warning-title { font-weight: 700; }
+
+.warning-headline {
+  margin-left: 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.lvl {
+  display: inline-block;
+  min-width: 64px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  color: #1c2430;
+  background: var(--suspect);
+}
+
+.lvl-minor { background: var(--flood-minor); }
+.lvl-moderate { background: var(--flood-moderate); }
+.lvl-major { background: var(--flood-major); color: #ffffff; }
+.lvl-watch { background: var(--rising); }
+.lvl-warning { background: var(--water); color: #ffffff; }
+
+.alert-summary { font-weight: 700; }
+
+.alert-card .small { color: var(--muted); }
+
+.alert-row, .alert-more {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.alert-row:hover, .alert-more:hover { background: var(--water-soft); }
+
+.alert-more {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.alert-row .star, .alert-summary .star { color: #d49a00; margin-right: 4px; }
+
+.alert-clear { color: var(--muted); font-size: 0.85rem; }
+
+/* Watch button beside a gauge's name. */
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.watch-btn {
+  flex: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8a6400;
+  background: transparent;
+  border: 1.5px solid #d49a00;
+  border-radius: 14px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+.watch-btn[aria-pressed="true"] {
+  color: #1c2430;
+  background: #f2c94c;
+}
+
+@media (prefers-color-scheme: dark) {
+  .watch-btn { color: #f2c94c; }
+  .watch-btn[aria-pressed="true"] { color: #1c2430; }
+}
+
+/* ---------- Layout ---------- */
+
+.layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.map {
+  flex: 1;
+  min-height: 300px;
+  background: var(--bg);
+}
+
+.panel {
+  width: 420px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.controls .period { width: 100%; }
+
+.controls select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.hint { color: var(--muted); }
+
+.small {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.credits { margin-top: auto; }
+
+/* ---------- Gauge detail ---------- */
+
+.detail h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.detail .meta {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.dial {
+  display: block;
+  width: 100%;
+  max-width: 330px;
+  margin: 10px auto 0;
+}
+
+.dial .track { stroke: var(--dial-track); }
+.dial .band-label { font-size: 9px; fill: var(--muted); }
+.dial .value { font-size: 34px; font-weight: 700; fill: var(--ink); }
+.dial .unit { font-size: 15px; font-weight: 400; fill: var(--muted); }
+.dial .caption { font-size: 11px; fill: var(--muted); }
+
+.dial-note {
+  margin: 2px 0 0;
+  text-align: center;
+  font-weight: 700;
+}
+
+.dial-note.flood-minor { color: #9a6a00; }
+.dial-note.flood-moderate { color: #b4500a; }
+.dial-note.flood-major { color: var(--flood-major); }
+
+@media (prefers-color-scheme: dark) {
+  .dial-note.flood-minor { color: var(--flood-minor); }
+  .dial-note.flood-moderate { color: #f39a52; }
+  .dial-note.flood-major { color: #f07a80; }
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.trendtag, .floodtag {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.trendtag { color: #fff; }
+.trendtag.trend-rising_fast { background: var(--rising-fast); }
+.trendtag.trend-rising { background: var(--rising); }
+.trendtag.trend-steady { background: var(--steady); }
+.trendtag.trend-falling { background: var(--falling); }
+.trendtag.trend-unknown { background: var(--unknown); }
+
+.floodtag { color: #1c2430; }
+.floodtag.flood-minor { background: var(--flood-minor); }
+.floodtag.flood-moderate { background: var(--flood-moderate); }
+.floodtag.flood-major { background: var(--flood-major); color: #fff; }
+
+/* Quick facts: a two-column grid divided by hairlines, not separate cards. */
+.facts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 14px 0 6px;
+  border-top: 1px solid var(--line);
+}
+
+.fact {
+  padding: 9px 4px 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.fact:nth-child(odd) {
+  padding-right: 12px;
+  border-right: 1px solid var(--line);
+}
+
+.fact:nth-child(even) { padding-left: 12px; }
+
+.fact .label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.fact .num {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.fact .when {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.warn, .tidenote, .pairlink {
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+
+.warn {
+  background: var(--alert-bg);
+  border: 1px solid var(--alert-line);
+  color: var(--alert-ink);
+}
+
+.tidenote {
+  background: var(--water-soft);
+  border: 1px solid var(--line);
+}
+
+.pairlink {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.pairlink:hover { background: var(--water-soft); }
+
+.subhead {
+  margin: 14px 0 4px;
+  font-size: 0.95rem;
+}
+
+.others {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 0.85rem;
+}
+
+/* ---------- Charts ---------- */
+
+.chart {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.chart svg { display: block; width: 100%; }
+
+.chart text {
+  font-size: 10px;
+  fill: var(--muted);
+}
+
+.chart .gridline {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart .line {
+  fill: none;
+  stroke: var(--water);
+  stroke-width: 2;
+}
+
+.chart .waterfill { fill: var(--water-soft); }
+
+.chart .bar { fill: var(--rain-3); }
+
+.chart .runline {
+  fill: none;
+  stroke: var(--rain-5);
+  stroke-width: 1.5;
+}
+
+.chart .runtext { fill: var(--rain-5); }
+
+@media (prefers-color-scheme: dark) {
+  .chart .runline { stroke: #b39ae8; }
+  .chart .runtext { fill: #b39ae8; }
+}
+
+.chart .floodline {
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.chart .floodline.flood-minor { stroke: var(--flood-minor); }
+.chart .floodline.flood-moderate { stroke: var(--flood-moderate); }
+.chart .floodline.flood-major { stroke: var(--flood-major); }
+
+/* ---------- Legend ---------- */
+
+.legend h2 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 6px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #8a94a3;
+}
+
+.dot.trend-rising_fast { background: var(--rising-fast); }
+.dot.trend-rising { background: var(--rising); }
+.dot.trend-steady { background: var(--steady); }
+.dot.trend-falling { background: var(--falling); }
+
+.dot.tidal {
+  background: var(--steady);
+  box-shadow: 0 0 0 3px #1c2430;
+}
+
+/* May be faulty or not reporting: grey with a question mark (legend and map). */
+.qmark, .q-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--suspect);
+  border: 1.5px solid #5d6672;
+  color: #2b323b;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+}
+
+.qmark {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.q-icon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+/* Flood camera marker and legend symbol. */
+.cam-icon, .cam-legend {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #1c2430;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.cam-icon {
+  position: absolute;
+  /* Sit below and to the left of the point, so a gauge at the same bridge stays visible
+     (rain boxes sit above and to the right). */
+  transform: translate(calc(-100% - 3px), 3px);
+  cursor: pointer;
+}
+
+.cam-icon svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  fill: #ffffff;
+}
+
+.cam-legend {
+  vertical-align: middle;
+  margin-right: 6px;
+  width: 18px;
+  height: 18px;
+  background: #1c2430 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Crect x='2' y='7' width='14' height='11' rx='2'/%3E%3Cpath d='M16 11l6-3.5v10L16 14z'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+
+.legend .diamond {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin: 0 9px 0 3px;
+  transform: rotate(45deg);
+  border: 1.5px solid #1c2430;
+  vertical-align: middle;
+}
+
+.legend .diamond.flood-minor { background: var(--flood-minor); }
+.legend .diamond.flood-moderate { background: var(--flood-moderate); }
+.legend .diamond.flood-major { background: var(--flood-major); }
+
+.legend .rain-dot-legend {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 12px 0 4px;
+  border-radius: 50%;
+  background: #8fb3d9;
+  border: 1px solid #4a6a8f;
+  vertical-align: middle;
+}
+
+/* ---------- Map markers ---------- */
+
+.rainbox, .rain-icon {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 4px;
+  border-radius: 4px;
+  border: 1px solid #4a6a8f;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  background: var(--rain-3);
+  color: #fff;
+}
+
+.rainbox { margin-right: 6px; }
+
+.rain-icon {
+  position: absolute;
+  /* Sit just above and to the right of the point, so a river gauge at the same site stays visible. */
+  transform: translate(5px, -100%);
+  white-space: nowrap;
+}
+
+.rain-icon.r0 { background: #eef3f8; color: #4a6a8f; }
+.rain-icon.r1 { background: var(--rain-1); color: #0c2f66; }
+.rain-icon.r2 { background: var(--rain-2); color: #0c2f66; }
+.rain-icon.r3 { background: var(--rain-3); }
+.rain-icon.r4 { background: var(--rain-4); }
+.rain-icon.r5 { background: var(--rain-5); }
+.rain-icon.stale, .rain-icon.suspect { background: var(--suspect); color: #3a424d; }
+
+/* Community (unofficial) rain gauges: dashed outline and italic numbers. */
+.rain-icon.community, .rainbox.community {
+  border: 1.5px dashed #1c2430;
+  font-style: italic;
+}
+
+.rain-dot.community { border-style: dashed; border-color: #1c2430; }
+
+/* A working community gauge not yet looked up (zoom in to load its rain). */
+.community-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  border: 1.5px dashed #1c2430;
+}
+
+@media (prefers-color-scheme: dark) {
+  .community-dot { border-color: #e6eef2; }
+}
+
+.rain-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #8fb3d9;
+  border: 1px solid #4a6a8f;
+}
+
+/* Gauges at or above an official flood level: a diamond in the flood class colour. */
+.flood-icon {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 2px solid #1c2430;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.flood-icon.flood-minor { background: var(--flood-minor); }
+.flood-icon.flood-moderate { background: var(--flood-moderate); }
+.flood-icon.flood-major { background: var(--flood-major); }
+
+/* Leaflet 1.9 blends map tiles with "plus-lighter" to hide gaps, but with Windows display
+   scaling (110-150%) that brightens the overlapping tile edges into faint white lines.
+   Normal blending removes them (checked at 100%, 110%, 125% and 150% scaling). */
+.leaflet-container img.leaflet-tile {
+  mix-blend-mode: normal;
+}
+
+.leaflet-container {
+  font-family: var(--font);
+  background: var(--bg);
+}
+
+/* Dark mode: dim and invert the street map so it doesn't glare; markers keep their colours. */
+@media (prefers-color-scheme: dark) {
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.85) saturate(0.6);
+  }
+  .leaflet-control-zoom a,
+  .leaflet-control-attribution {
+    background: var(--surface) !important;
+    color: var(--ink) !important;
+  }
+  .leaflet-tooltip,
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+}
+
+/* Road events from QLDTraffic: a no-entry sign for closures, a blue water sign for flooding. */
+.road-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+.road-icon.closed {
+  background: #c62828 linear-gradient(#ffffff, #ffffff) center / 10px 3px no-repeat;
+}
+
+.road-icon.flooding {
+  border-radius: 5px;
+  background: #1f6fd1;
+}
+
+.leaflet-marker-icon .road-icon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.legend-sign {
+  vertical-align: middle;
+  margin-right: 6px;
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+  line-height: 13px;
+}
+
+.road-popup {
+  font-family: var(--font);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  display: grid;
+  gap: 3px;
+}
+
+.road-closed {
+  font-weight: 700;
+  color: #b42318;
+}
+
+.road-open { font-weight: 700; }
+
+@media (prefers-color-scheme: dark) {
+  .road-closed { color: #f28b82; }
+}
+
+.traffic-note {
+  width: 100%;
+  margin: 0;
+}
+
+/* ---------- Place search ---------- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+#search-form {
+  display: flex;
+  gap: 6px;
+}
+
+#search-form input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+#search-form button {
+  font: inherit;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  #search-form button { color: #0f1a21; }
+}
+
+.search-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.search-results li + li { border-top: 1px solid var(--line); }
+
+.resultlink, .nearlink {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.resultlink:hover, .nearlink:hover { background: var(--water-soft); }
+
+.search-status { margin: 6px 0 0; }
+
+.search-pin {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50% 50% 50% 0;
+  background: var(--accent);
+  border: 2px solid #ffffff;
+  transform: translate(-50%, -100%) rotate(-45deg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Flood maps ---------- */
+
+.notify h2 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.notify .small { margin: 4px 0; }
+
+.notify-row {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.notify-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.notify-buttons button {
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.notify-buttons button.secondary {
+  color: var(--accent);
+  background: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notify-buttons button { color: #0f1a21; }
+  .notify-buttons button.secondary { color: var(--accent); }
+}
+
+.notify-sub {
+  margin: 10px 0 2px;
+  font-size: 0.9rem;
+}
+
+.area-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.area-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.area-name {
+  flex: 1;
+  font-weight: 700;
+}
+
+.area-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+
+.area-form {
+  display: flex;
+  gap: 6px;
+}
+
+.area-form[hidden] { display: none; }
+
+.area-form input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.area-form button {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: transparent;
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.area-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 0 5px;
+  white-space: nowrap;
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+}
+
+.overlays h2 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.overlay-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  padding: 2px 0;
+}
+
+.overlay-row .swatch {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 12px;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+
+.overlay-row .swatch.outline {
+  opacity: 1;
+  background: transparent;
+  border: 2px dashed;
+}
+
+.overlays .small { margin: 6px 0 0; }
+
+/* Reset button on the map. */
+.reset-control {
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.reset-control:hover { background: var(--water-soft); }
+
+.map-info {
+  max-width: 260px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 0.82rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.place-popup, .cam-popup {
+  font-family: var(--font);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  display: grid;
+  gap: 4px;
+}
+
+.place-popup .subhead { margin: 6px 0 0; }
+
+.place-hits {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.cam-link {
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.nearlink {
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--accent);
+}
+
+/* ---------- Phones: map on top, panel underneath ---------- */
+
+@media (max-width: 760px) {
+  html, body { height: auto; }
+  .layout { flex-direction: column; }
+  .map { flex: none; height: 55vh; }
+  .panel {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    overflow: visible;
+  }
+  .subtitle { display: none; }
+  /* Phones zoom with two fingers; the buttons would sit over popups on a small map. */
+  .leaflet-control-zoom { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------- Flood event upstream (gauge details) ---------- */
+.upstream {
+  margin: 0.5rem 0;
+  border: 1px solid var(--notice-line);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: var(--notice-bg);
+  font-size: 0.92rem;
+}
+.upstream.upstream-flood {
+  border-color: var(--alert-line);
+  border-left-color: var(--flood-moderate);
+  background: var(--alert-bg);
+}
+.upstream summary {
+  cursor: pointer;
+  padding: 0.35rem 0.6rem;
+  font-weight: 700;
+  list-style-position: inside;
+}
+.upstream summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.upstream-list {
+  margin: 0;
+  padding: 0 0.6rem 0 1.6rem;
+}
+.upstream-list li {
+  margin: 0.3rem 0;
+}
+.upstream-go {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.upstream-state {
+  font-weight: 600;
+}
+.upstream-predict strong {
+  color: var(--predict);
+}
+.upstream > .small {
+  margin: 0.3rem 0.6rem 0.5rem;
+}
+.upstream-quiet {
+  margin: 0.4rem 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}

@@ -1,0 +1,18 @@
+# How long a flood peak takes to travel between two gauges on the same river, worked out from
+# past floods (peak upstream to peak downstream). Used with data/network.csv for the
+# "Flood event upstream" notice. Times between gauges not listed here are added up from shorter
+# legs where possible, otherwise shown as "not yet worked out".
+#
+# from, to   gauge ids on the map (the first id of each spot in data/network.csv)
+# hours      typical (median) travel time
+# low, high  the middle half of past events (25th to 75th percentile)
+# events     how many past rises this is based on
+# source     where it came from
+from,to,hours,low,high,events,source
+B540143-H,B040817-H,22,18,26,28,Qld water monitoring history 1990-2026 (Helidon to Rifle Range Rd)
+B540152-H,B040817-H,20,17,24,25,Qld water monitoring history 1990-2026 (Tenthill to Rifle Range Rd)
+B540406-H,B040817-H,20,18,24,22,Qld water monitoring history 1990-2026 (Ma Ma Creek to Rifle Range Rd)
+B540405-H,B040817-H,20,16,23,22,Qld water monitoring history 1990-2026 (Flagstone Creek to Rifle Range Rd)
+B040835-H,B540529-H,14,12,16,45,Qld water monitoring history 1990-2026 (Mulgowie to Warrego Hwy)
+B540529-H,B040817-H,13,10,19,44,Qld water monitoring history 1990-2026 (Warrego Hwy to Rifle Range Rd)
+B040817-H,B540701-H,4,3,5,15,Qld water monitoring history 1990-2026 (Rifle Range Rd to Clarendon)

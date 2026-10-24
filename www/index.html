@@ -1,0 +1,160 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later. Flood Watcher. Copyright (C) 2026 Vernon Spain. -->
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flood Watcher — Brisbane River catchment</title>
+  <meta name="description" content="Community dashboard of rain and river gauges across the Brisbane River catchment. Not an official warning service.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#2462a3">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Flood Watcher</h1>
+      <span class="subtitle">Brisbane River catchment rain &amp; river levels</span>
+    </div>
+    <div class="freshness" id="freshness" aria-live="polite">Loading…</div>
+  </header>
+
+  <div class="notice" role="note">
+    <strong>Not an official warning service.</strong>
+    Readings are raw and unchecked. For warnings, follow the
+    <a href="https://www.bom.gov.au/qld/warnings/" target="_blank" rel="noopener">Bureau of Meteorology</a>
+    and <a href="https://www.brisbane.qld.gov.au/community-and-safety/community-safety/disasters-and-emergencies/be-prepared/storm-safety" target="_blank" rel="noopener">Brisbane City Council</a>.
+    In an emergency call <a href="tel:000">000</a>; for SES help call <a href="tel:132500">132 500</a>.
+  </div>
+
+  <div class="alert" id="stale-alert" hidden></div>
+
+  <main class="layout">
+    <div id="map" class="map" aria-label="Map of rain and stream gauges"></div>
+
+    <aside class="panel" id="panel">
+      <section class="search" aria-label="Find a place">
+        <form id="search-form" role="search">
+          <label for="search-input" class="visually-hidden">Find a place or address</label>
+          <input type="search" id="search-input" placeholder="Find a place or address" autocomplete="off" maxlength="120">
+          <button type="submit">Find</button>
+        </form>
+        <ul class="search-results" id="search-results" hidden></ul>
+        <p class="small search-status" id="search-status" hidden></p>
+      </section>
+
+      <section class="detail" id="detail" aria-live="polite">
+        <p class="hint">Choose a gauge on the map to see its readings and last 3 days.</p>
+      </section>
+
+      <section class="notify" id="notify" aria-label="Notifications" hidden>
+        <h2>Notifications</h2>
+        <p class="small" id="notify-status" aria-live="polite"></p>
+        <label class="notify-row"><input type="checkbox" id="notify-warnings" checked> All BoM flood warnings for the catchment</label>
+        <label class="notify-row"><input type="checkbox" id="notify-predictive" checked> Predictive flood alerts for your areas
+          (this site's estimates)</label>
+        <p class="small">Plus alerts for gauges on your watch list (open a gauge and tap ☆ Watch) and for
+          your areas below.</p>
+        <h3 class="notify-sub">Your areas</h3>
+        <ul class="area-list" id="area-list"></ul>
+        <p class="small">Zoom the map to the area you care about (a single gauge, a town, a stretch of river),
+          name it and add it. You'll be told about gauge alerts and BoM warnings inside it.</p>
+        <form class="area-form" id="area-form">
+          <label for="area-name" class="visually-hidden">Area name</label>
+          <input type="text" id="area-name" maxlength="40" placeholder="Name, e.g. Gatton" autocomplete="off">
+          <button type="submit">Add this map view</button>
+        </form>
+        <div class="notify-buttons">
+          <button type="button" id="notify-on">Turn on notifications</button>
+          <button type="button" id="notify-test" hidden>Send a test</button>
+          <button type="button" id="notify-off" class="secondary" hidden>Turn off</button>
+        </div>
+      </section>
+
+      <section class="controls" aria-label="Map options">
+        <label><input type="checkbox" id="show-stream" checked> Creek &amp; river levels</label>
+        <label><input type="checkbox" id="show-rain" checked> Rainfall</label>
+        <label><input type="checkbox" id="show-community"> Community rain (unofficial)</label>
+        <p class="small traffic-note" id="community-note" hidden></p>
+        <label><input type="checkbox" id="show-roads" checked> Road closures &amp; flooding</label>
+        <label><input type="checkbox" id="show-cameras" checked> Flood cameras</label>
+        <p class="small traffic-note" id="traffic-note"></p>
+        <label class="period">Rain over
+          <select id="rain-period">
+            <option value="rain_1h">last hour</option>
+            <option value="since_9am">since 9am</option>
+            <option value="rain_3h">last 3 hours</option>
+            <option value="rain_24h" selected>last 24 hours</option>
+            <option value="rain_72h">last 3 days</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="overlays" id="overlays" aria-label="Flood maps" hidden>
+        <h2>Flood maps</h2>
+        <div id="overlay-list"></div>
+        <p class="small">Shading shows where flooding has happened or could happen, not current flooding or
+          depth. Hover over the map, or tap it on a phone, to see what applies at that spot.
+          The state floodplain map is a rough guide drawn from land shape, not a flood model.</p>
+        <p class="small">Detailed council flood maps:
+          <a href="https://www.brisbane.qld.gov.au/community-and-safety/community-safety/disasters-and-emergencies/be-prepared/flooding-in-brisbane/flood-awareness-map" target="_blank" rel="noopener">Brisbane</a>,
+          <a href="https://www.lvrc.qld.gov.au/flood-information-portal" target="_blank" rel="noopener">Lockyer Valley</a>,
+          <a href="https://www.somerset.qld.gov.au/Our-Services/eServices/Mapping" target="_blank" rel="noopener">Somerset</a>
+          and the state's <a href="https://floodcheck.information.qld.gov.au/" target="_blank" rel="noopener">FloodCheck</a>.</p>
+      </section>
+
+      <section class="legend" aria-label="Legend">
+        <h2>Legend</h2>
+        <ul class="legend-list">
+          <li><span class="diamond flood-major"></span> Major flooding (BoM flood level)</li>
+          <li><span class="diamond flood-moderate"></span> Moderate flooding</li>
+          <li><span class="diamond flood-minor"></span> Minor flooding</li>
+          <li><span class="dot trend-rising_fast"></span> Rising fast</li>
+          <li><span class="dot trend-rising"></span> Rising</li>
+          <li><span class="dot trend-steady"></span> Steady</li>
+          <li><span class="dot trend-falling"></span> Falling</li>
+          <li><span class="dot tidal"></span> Ring = tidal (rises and falls with the tide)</li>
+          <li><span class="qmark">?</span> May be faulty or not reporting</li>
+          <li><span class="rainbox">12</span> Rainfall in mm</li>
+          <li><span class="rain-dot-legend"></span> Rain gauge, no rain</li>
+          <li><span class="rainbox community">7</span> Community rain gauge (Weather Underground, unofficial)</li>
+          <li><span class="road-icon closed legend-sign"></span> Road closed (QLDTraffic)</li>
+          <li><span class="road-icon flooding legend-sign">≈</span> Water over or near the road, still open</li>
+          <li><span class="cam-legend" aria-hidden="true"></span> Flood camera (opens the council's camera page)</li>
+        </ul>
+        <p class="small">More flood cameras:
+          <a href="https://disaster.ipswich.qld.gov.au/" target="_blank" rel="noopener">Ipswich</a>,
+          <a href="https://disaster.lvrc.qld.gov.au/" target="_blank" rel="noopener">Lockyer Valley</a>,
+          <a href="https://www.somerset.qld.gov.au/Our-Services/Disaster-Management/Flood-Cameras" target="_blank" rel="noopener">Somerset</a>
+          and <a href="https://qldtraffic.qld.gov.au/" target="_blank" rel="noopener">QLDTraffic</a> road cameras.</p>
+        <p class="small" id="threshold-text"></p>
+      </section>
+
+      <footer class="credits small">
+        Gauge data:
+        <a href="https://data.brisbane.qld.gov.au/explore/dataset/telemetry-sensors-rainfall-and-stream-heights/" target="_blank" rel="noopener">Brisbane City Council open data</a>;
+        <a href="https://www.bom.gov.au/qld/flood/" target="_blank" rel="noopener">Bureau of Meteorology</a>
+        (flood levels and BoM gauges);
+        <a href="https://water-monitoring.information.qld.gov.au/" target="_blank" rel="noopener">&copy; State of Queensland</a>
+        (CC BY 4.0). Heights are in metres, measured from either AHD (about mean sea level) or the
+        gauge's own zero, as shown for each gauge. Times are Brisbane time.
+        Community rain: <a href="https://www.wunderground.com/" target="_blank" rel="noopener">Weather Underground</a>,
+        from stations run by members of the public (unofficial).
+        Road closures and flooding:
+        <a href="https://qldtraffic.qld.gov.au/" target="_blank" rel="noopener">QLDTraffic</a>,
+        &copy; State of Queensland (Department of Transport and Main Roads), CC BY 4.0. Mostly state roads;
+        check your council's disaster dashboard for local roads.
+        Flood maps: <span id="overlay-credits">Brisbane City Council; State of Queensland</span>. Place search:
+        <a href="https://nominatim.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap Nominatim</a>.
+      </footer>
+    </aside>
+  </main>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

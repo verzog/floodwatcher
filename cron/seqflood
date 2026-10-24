@@ -1,0 +1,13 @@
+# Flood Watcher collectors. Copy to /etc/cron.d/seqflood (chmod 644). Times are server time.
+# Council gauges every 10 minutes, then rebuild the dashboard data.
+*/10 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_bcc.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1; /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/build_json.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+# Bureau of Meteorology every 15 minutes (offset so it doesn't clash with the council run).
+3-59/15 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_bom.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1; /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_warnings.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1; /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/build_json.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+# Queensland Government gauges every 30 minutes.
+7,37 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_qld.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1; /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/build_json.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+# QLDTraffic road closures and flooding every 10 minutes (offset from the council run).
+5-59/10 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_traffic.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+# Weather Underground community rain every 15 minutes (does nothing until switched on in config.php).
+9-59/15 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_wu.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+# Flood map shading, weekly (Sunday 3:17 am): council and state flood maps rarely change.
+17 3 * * 0 my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/fetch_overlays.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
