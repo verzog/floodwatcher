@@ -429,7 +429,9 @@
       bands.push([lo, hi, '--dial-track']);
     }
 
-    var fill = flooding(s.flood_class) ? 'var(--flood-' + s.flood_class + ')' : 'var(--water)';
+    // A doubted reading (see the note above the dial) isn't shown as a flood.
+    var shownClass = s.note ? null : s.flood_class;
+    var fill = flooding(shownClass) ? 'var(--flood-' + shownClass + ')' : 'var(--water)';
     var wrap = el('div');
     wrap.appendChild(dial({
       min: lo, max: hi, value: lv, bands: bands, fill: fill,
@@ -444,10 +446,12 @@
       note = 'BoM has no flood levels for this gauge.';
     } else if (s.flood_class === 'below') {
       note = (minor - lv).toFixed(2) + ' m below minor flood level';
+    } else if (s.note) {
+      note = 'This reading is above the minor flood level but may be faulty (see above).';
     } else {
       note = FLOOD_LABELS[s.flood_class] + ': ' + (lv - minor).toFixed(2) + ' m above minor flood level';
     }
-    wrap.appendChild(el('p', 'dial-note' + (flooding(s.flood_class) ? ' flood-' + s.flood_class : ''), note));
+    wrap.appendChild(el('p', 'dial-note' + (flooding(shownClass) ? ' flood-' + shownClass : ''), note));
     return wrap;
   }
 
@@ -681,7 +685,8 @@
       } else {
         detail.appendChild(riverDial(s));
         var tags = el('div', 'tags');
-        tags.appendChild(el('span', 'trendtag trend-' + (s.trend || 'unknown'), TREND_LABELS[s.trend || 'unknown']));
+        var trend = s.note ? 'unknown' : (s.trend || 'unknown'); // A doubted reading has no trustworthy trend.
+        tags.appendChild(el('span', 'trendtag trend-' + trend, TREND_LABELS[trend]));
         detail.appendChild(tags);
       }
       var rate = (s.rate_per_hr !== null && s.rate_per_hr !== undefined)
@@ -1226,8 +1231,8 @@
           var btn = el('button', 'nearlink');
           btn.type = 'button';
           var km = x.d < 1000 ? Math.round(x.d / 10) * 10 + ' m' : (x.d / 1000).toFixed(1) + ' km';
-          var status = flooding(x.s.flood_class) ? FLOOD_LABELS[x.s.flood_class] :
-            (x.s.note || x.s.stale) ? 'not reporting' : TREND_LABELS[x.s.trend || 'unknown'];
+          var status = x.s.note ? 'may be faulty' : x.s.stale ? 'not reporting'
+            : flooding(x.s.flood_class) ? FLOOD_LABELS[x.s.flood_class] : TREND_LABELS[x.s.trend || 'unknown'];
           btn.textContent = x.s.name + ' — ' + km + ', ' + status.toLowerCase();
           btn.addEventListener('click', function () { map.closePopup(); select(x.s.id); });
           box.appendChild(btn);

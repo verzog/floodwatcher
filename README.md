@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.17.1
+# Flood Watcher (SEQ Flood Watch) — version 0.17.2
 
 A community flood dashboard for the Brisbane River catchment. It collects rainfall and river
 heights from three public sources, stores them, and shows them on a map.
@@ -21,6 +21,12 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.17.2
+
+- A gauge whose reading is doubted (a sudden jump, or a gauge marked as possibly faulty) no longer
+  shows "Major flooding" on its dial, "Rising fast" as its trend, or a flood level in the nearest
+  gauges list of a map popup; they say the reading may be faulty instead.
 
 ## Changes in 0.17.1
 

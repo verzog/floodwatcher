@@ -362,9 +362,10 @@ foreach ($items as $id => $it) {
         continue;
     }
     $items[$id]['spike'] = true;
-    $items[$id]['note'] = sprintf('jumped %.2f m in %d minutes at %s, which is probably a faulty reading (%s). '
-        . 'No alerts until it is confirmed.', $jump['rise'], $jump['minutes'], gmdate('H:i', $jump['t'] + 36000),
-        $neighbours ? 'other gauges on this river didn\'t rise' : 'waiting for more readings');
+    // Shown after "This gauge may be faulty: ".
+    $items[$id]['note'] = sprintf('it jumped %.2f m in %d minutes at %s, %s. No alerts until that is confirmed.',
+        $jump['rise'], $jump['minutes'], gmdate('H:i', $jump['t'] + 36000),
+        $neighbours ? 'but other gauges on this river didn\'t rise' : 'and needs more readings to confirm it');
 }
 
 // ---------- Check community rain gauges against official ones nearby ----------
