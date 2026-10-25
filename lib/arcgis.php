@@ -112,38 +112,6 @@ function sfw_arc_layer_info(string $layerurl): array
 }
 
 /**
- * The attributes of the shapes with the given ids (no shapes), asked for a few at a time.
- * Some servers refuse a query for every shape's attributes at once, but answer these.
- *
- * @param int[] $ids
- * @param string[] $fields Field names to return (the id field is added).
- * @return array<int, array<string, mixed>> Each with its object id under 'objectid'.
- */
-function sfw_arc_attributes_by_ids(string $layerurl, array $ids, array $fields, string $idfield, int $batch = 25): array
-{
-    $out = [];
-    foreach (sfw_arc_chunks($ids, $batch) as $chunk) {
-        $url = rtrim($layerurl, '/') . '/query?' . http_build_query([
-            'objectIds'      => implode(',', $chunk),
-            'outFields'      => implode(',', array_unique(array_merge([$idfield], $fields))),
-            'returnGeometry' => 'false',
-            'f'              => 'json',
-        ]);
-        $data = sfw_http_get_json($url);
-        if (isset($data['error'])) {
-            throw new RuntimeException('Map service error reading attributes: ' . json_encode($data['error']));
-        }
-        foreach ($data['features'] ?? [] as $f) {
-            $a = is_array($f['attributes'] ?? null) ? $f['attributes'] : [];
-            $id = $a[$idfield] ?? null;
-            $out[] = $a + ['objectid' => $id === null ? null : (int) $id];
-        }
-        usleep(200000);
-    }
-    return $out;
-}
-
-/**
  * Split shape ids into groups for requests: at most $max ids, and short enough that the
  * request address stays under $maxchars (some servers, such as Brisbane City Council's,
  * refuse addresses longer than about 2,000 characters).

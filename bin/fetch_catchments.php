@@ -76,12 +76,13 @@ try {
     if ($numfield === null || $namefield === null) {
         throw new RuntimeException('no basin number or name field (fields: ' . implode(', ', $fields) . ')');
     }
-    // Every shape's id, then the number and name a few shapes at a time.
-    $ids = sfw_arc_ids($url);
-    if (!$ids) {
+    // The number and name of every basin. This service refuses some requests ("Error performing
+    // query operation"): asking for every field, or for the shape ids, with a filter. Asking for
+    // just these two fields works, and so does finding a basin's shapes by its number (below).
+    $rows = sfw_arc_attributes($url, '1=1', "{$numfield},{$namefield}");
+    if (!$rows) {
         throw new RuntimeException('the map service returned no drainage basins');
     }
-    $rows = sfw_arc_attributes_by_ids($url, $ids, [$numfield, $namefield], $info['idfield']);
 
     // Live catchments by basin number.
     $livebybasin = [];
@@ -89,16 +90,24 @@ try {
         $livebybasin[(string) $c['basin']] = (string) $key;
     }
 
-    // Group the shapes by basin (a basin can be several shapes, such as islands).
+    // One entry per basin (a basin can be several shapes, such as islands), then its shapes' ids.
     $basins = [];
     foreach ($rows as $r) {
         $num = trim((string) ($r[$numfield] ?? ''));
-        if ($num === '' || $r['objectid'] === null) {
-            continue;
+        if ($num !== '' && preg_match('/^[A-Za-z0-9]{1,10}$/', $num)) {
+            $basins[$num]['name'] ??= sfw_basin_name((string) ($r[$namefield] ?? $num));
         }
-        $basins[$num]['name'] ??= sfw_basin_name((string) ($r[$namefield] ?? $num));
-        $basins[$num]['ids'][] = $r['objectid'];
     }
+    foreach (array_keys($basins) as $num) {
+        $num = (string) $num;
+        try {
+            $basins[$num]['ids'] = sfw_arc_ids($url, "{$numfield} = '{$num}'");
+        } catch (Throwable $e) {
+            throw new RuntimeException("shapes of {$basins[$num]['name']} (basin {$num}): " . $e->getMessage(), 0, $e);
+        }
+        usleep(200000);
+    }
+    $basins = array_filter($basins, static fn(array $b): bool => !empty($b['ids']));
 
     $out = [];
     $foundlive = [];
