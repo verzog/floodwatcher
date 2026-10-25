@@ -40,14 +40,6 @@ jobs:
     # This exercises the code against saved copies of the real services, so a change that breaks
     # the pipeline fails here instead of only on the live server.
     runs-on: ubuntu-latest
-    env:
-      FW_DB_HOST: 127.0.0.1
-      FW_DB_USER: root
-      FW_DB_PASSWORD: root
-      FW_DB_NAME: floodwatcher_test
-      FW_TEST_DIR: ${{ runner.temp }}/fw-test
-      SFW_CONFIG: ${{ github.workspace }}/dev/config.test.php
-      SFW_CODE_DIR: ${{ github.workspace }}
     services:
       mariadb:
         image: mariadb:11.4
@@ -74,6 +66,14 @@ jobs:
       - name: Install pyftpdlib (for the BoM FTP mock)
         run: pip install pyftpdlib
       - name: Run the pipeline against the mocks and check the output
+        env:
+          FW_DB_HOST: 127.0.0.1
+          FW_DB_USER: root
+          FW_DB_PASSWORD: root
+          FW_DB_NAME: floodwatcher_test
+          FW_TEST_DIR: ${{ runner.temp }}/fw-test
+          SFW_CONFIG: ${{ github.workspace }}/dev/config.test.php
+          SFW_CODE_DIR: ${{ github.workspace }}
         run: |
           sh dev/start.sh
           php bin/migrate.php
