@@ -184,8 +184,22 @@ foreach ($kinds as $suffix => $kind) {
                 }
             } else {
                 $capable = [];
+                $skipped = [];
                 foreach ($sites as $site) {
-                    $one = sfw_qld_request($cfg['url'], [$site], $params, $startutc, $endutc, $offset);
+                    try {
+                        $one = sfw_qld_request($cfg['url'], [$site], $params, $startutc, $endutc, $offset);
+                    } catch (Throwable $e) {
+                        // One station can time out (WMIP returns HTTP 408, "client took too long");
+                        // skip it and carry on rather than failing the whole recheck (lesson 5). If
+                        // many fail, the service itself is down, so let the run error.
+                        $skipped[] = $site;
+                        if (count($skipped) >= (int) ($cfg['max_station_timeouts'] ?? 15)) {
+                            throw new RuntimeException(sprintf('%d stations failed (last %s: %s)',
+                                count($skipped), $site, $e->getMessage()));
+                        }
+                        usleep(200000);
+                        continue;
+                    }
                     if ((int) ($one['error_num'] ?? 0) !== 0) {
                         continue;
                     }
@@ -196,6 +210,10 @@ foreach ($kinds as $suffix => $kind) {
                         }
                     }
                     usleep(200000); // Be gentle with the state's server: 0.2 s between requests.
+                }
+                if ($skipped !== []) {
+                    sfw_log(sprintf('collect_qld: %s recheck skipped %d station(s) that timed out: %s',
+                        $kind['type'], count($skipped), implode(', ', $skipped)));
                 }
             }
             $state['capable'][$suffix] = array_values(array_unique($capable));

@@ -81,6 +81,15 @@ function sfw_insert_reading(string $sensorid, string $measuredutc, float $value)
  */
 function sfw_run_start(string $source): int
 {
+    // Any earlier run of this source still marked 'running' is dead: the caller holds the
+    // single-instance lock, so no real run of it is in progress. Close it as an error, so a
+    // process killed mid-run (out of memory, execution timeout) isn't shown as "still running"
+    // forever on the dashboard.
+    sfw_db()->prepare(
+        "UPDATE collector_runs SET status = 'error', finished_utc = ?,
+                message = 'Run did not finish (the process stopped).'
+          WHERE source = ? AND status = 'running'"
+    )->execute([sfw_now_utc(), $source]);
     sfw_db()->prepare('INSERT INTO collector_runs (source, started_utc) VALUES (?, ?)')
         ->execute([$source, sfw_now_utc()]);
     return (int) sfw_db()->lastInsertId();
