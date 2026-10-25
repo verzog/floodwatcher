@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.19.8
+# Flood Watcher (SEQ Flood Watch) — version 0.19.9
 
 A community flood dashboard for Queensland catchments, starting with the Brisbane River and the
 Mary River. It collects rainfall and river heights from public sources, stores them, and shows
@@ -22,6 +22,16 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.19.9
+
+- Internal only, no change to behaviour. Two more pieces of shared code:
+  - `collect_bcc.php` now uses the same lock and run-logging helpers as every other collector,
+    instead of its own copy — so it also gets the 0.19.7 "a collector stopped mid-run shows as an
+    error, not still running" handling.
+  - The check that flags a community rain gauge reading far from the official gauges nearby is now
+    one shared function (`sfw_wu_disagreement`), used by both the dashboard build and the live map
+    lookups, instead of two near-identical copies that could drift apart.
 
 ## Changes in 0.19.8
 

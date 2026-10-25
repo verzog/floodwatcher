@@ -19,21 +19,14 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/http.php';
+require dirname(__DIR__) . '/lib/store.php';
 require dirname(__DIR__) . '/lib/bcc.php';
 
 $config = sfw_config();
 $bcc = $config['bcc'];
 
 // Stop two runs overlapping (e.g. if the API is slow and cron starts the next run).
-$lockdir = dirname($config['lock_file']);
-if (!is_dir($lockdir) && !mkdir($lockdir, 0750, true) && !is_dir($lockdir)) {
-    sfw_fail("Cannot create {$lockdir}");
-}
-$lock = fopen($config['lock_file'], 'c');
-if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
-    sfw_log('Another collector run is still going; skipping this one.');
-    exit(0);
-}
+$lock = sfw_lock('collect_bcc');
 
 $db = sfw_db();
 
@@ -44,9 +37,7 @@ if ($known === []) {
     sfw_fail('No council sensors in the database. Run bin/import_sensors.php first.');
 }
 
-$db->prepare('INSERT INTO collector_runs (source, started_utc) VALUES (?, ?)')
-    ->execute(['bcc', sfw_now_utc()]);
-$runid = (int) $db->lastInsertId();
+$runid = sfw_run_start('bcc');
 
 $fetched = 0;
 $inserted = 0;
@@ -122,26 +113,13 @@ try {
     }
     $message = $notes === [] ? null : implode('; ', $notes);
 
-    $db->prepare(
-        "UPDATE collector_runs
-            SET finished_utc = ?, status = 'ok', records_fetched = ?, readings_inserted = ?,
-                newest_reading_utc = ?, message = ?
-          WHERE id = ?"
-    )->execute([sfw_now_utc(), $fetched, $inserted, $newest, $message, $runid]);
+    sfw_run_finish($runid, 'ok', $fetched, $inserted, $newest, $message);
 
     sfw_log("Done: {$fetched} records, {$inserted} new readings" . ($message ? " ({$message})" : '') . '.');
 } catch (Throwable $e) {
     if ($db->inTransaction()) {
         $db->rollBack();
     }
-    $db->prepare(
-        "UPDATE collector_runs
-            SET finished_utc = ?, status = 'error', records_fetched = ?, readings_inserted = ?,
-                newest_reading_utc = ?, message = ?
-          WHERE id = ?"
-    )->execute([sfw_now_utc(), $fetched, $inserted, $newest, substr($e->getMessage(), 0, 1000), $runid]);
+    sfw_run_finish($runid, 'error', $fetched, $inserted, $newest, $e->getMessage());
     sfw_fail($e->getMessage());
-} finally {
-    flock($lock, LOCK_UN);
-    fclose($lock);
 }

@@ -161,16 +161,13 @@ try {
                 $near[] = (float) $g['mm'];
             }
         }
-        if (count($near) < 2) {
+        $verdict = sfw_wu_disagreement((float) $st['today'], $near, (float) $cfg['check_min_mm'], (float) $cfg['check_low_share']);
+        if ($verdict === null) {
             continue;
         }
-        sort($near);
-        $median = $near[intdiv(count($near), 2)];
-        if ($median >= (float) $cfg['check_min_mm'] && $st['today'] < (float) $cfg['check_low_share'] * $median) {
-            $st['note'] = sprintf('Reads much less than official gauges nearby today (%.0f mm vs about %.0f mm).', $st['today'], $median);
-        } elseif ($st['today'] >= 20 && $st['today'] > 3 * $median + 10) {
-            $st['note'] = sprintf('Reads much more than official gauges nearby today (%.0f mm vs about %.0f mm).', $st['today'], $median);
-        }
+        $st['note'] = $verdict['level'] === 'low'
+            ? sprintf('Reads much less than official gauges nearby today (%.0f mm vs about %.0f mm).', $st['today'], $verdict['median'])
+            : sprintf('Reads much more than official gauges nearby today (%.0f mm vs about %.0f mm).', $st['today'], $verdict['median']);
     }
     unset($st);
 

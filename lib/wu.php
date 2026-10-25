@@ -112,3 +112,30 @@ function wu_current(array $cfg, string $id): array|null|false
         'rate'  => is_numeric($rate) ? (float) $rate : null,
     ];
 }
+
+/**
+ * Whether a community gauge's rain disagrees badly with the official gauges around it, from the
+ * gauge's own total $mine and the nearby official totals $near (same period, already chosen by
+ * distance). Returns ['level' => 'low'|'high', 'median' => float] for a bad disagreement, or null
+ * when it looks fine or there are fewer than two official gauges to judge against. Shared by
+ * bin/build_json.php (the daily pre-build check) and www/wu.php (live map lookups) so both judge
+ * the same way; each writes its own wording.
+ *
+ * @param float[] $near
+ * @return array{level: string, median: float}|null
+ */
+function sfw_wu_disagreement(float $mine, array $near, float $checkminmm, float $checklowshare): ?array
+{
+    if (count($near) < 2) {
+        return null;
+    }
+    sort($near);
+    $median = (float) $near[intdiv(count($near), 2)];
+    if ($median >= $checkminmm && $mine < $checklowshare * $median) {
+        return ['level' => 'low', 'median' => $median];
+    }
+    if ($mine >= 20.0 && $mine > 3 * $median + 10) {
+        return ['level' => 'high', 'median' => $median];
+    }
+    return null;
+}
