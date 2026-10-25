@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.19.4
+# Flood Watcher (SEQ Flood Watch) — version 0.19.5
 
 A community flood dashboard for Queensland catchments, starting with the Brisbane River and the
 Mary River. It collects rainfall and river heights from public sources, stores them, and shows
@@ -22,6 +22,21 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.19.5: the whole Mary River
+
+- **The Mary down to Maryborough**: BoM's Wide Bay and Burnett river and rain pages (IDQ65420,
+  IDQ65422, IDQ65423) add Sexton, Miva, Home Park, Tiaro, Owanyilla, The Barrage, Maryborough,
+  Munna Creek, Wide Bay Creek at Brooyar and six Tinana Creek gauges, plus the Mary's rain gauges.
+- **State stations** for the Mary (Miva, Home Park, Fishermans Pocket, Wide Bay, Munna, Tinana,
+  Glastonbury and Amamoor creeks) in `data/qld_sites.csv`.
+- **River network** for the whole Mary, ordered by gauge position; "check" lines need confirming.
+- **Flood map**: the state floodplain map's "Upper Mary River" and "Lower Mary River" sub-basins.
+- `php bin/collect_bom.php refresh` re-reads the gauge list straight away. The discover report
+  shows gauge positions and skips state stations that time out.
+
+After upgrading: `php bin/collect_bom.php refresh`, `php bin/fetch_overlays.php floodplain_mary`,
+`php bin/collect_qld.php`, then `php bin/build_json.php`.
 
 ## Changes in 0.19.4
 

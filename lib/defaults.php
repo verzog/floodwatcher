@@ -42,8 +42,11 @@ return [
         // add the pages bin/discover_catchment.php finds for other catchments.
         // IDQ65420: the Wide Bay and Burnett map, with the whole Mary River (checked 25/10/2026).
         'river_maps'        => ['IDQ65412.html', 'IDQ65420.html'],
-        'rain_maps'         => ['IDQ65415.html'],
-        'rain_9am_maps'     => ['IDQ65414.html'],
+        // Rain pages come in threes: 24 hours, since 9am and past hour (checked 25/10/2026 from the
+        // period each gauge's figure covers). South-east Queensland: IDQ65413-15; Wide Bay and
+        // Burnett, with the Mary River: IDQ65421-23.
+        'rain_maps'         => ['IDQ65415.html', 'IDQ65423.html'],
+        'rain_9am_maps'     => ['IDQ65414.html', 'IDQ65422.html'],
         // Brisbane River gauges: BoM's Brisbane/Moreton gauge group, less data/bom_exclude.csv. Gauges
         // for the other live catchments are those inside the catchment's outline (lib/catchments.php).
         'river_group'       => 'IDQ65389',
