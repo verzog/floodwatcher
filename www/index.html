@@ -43,7 +43,14 @@
   <main class="layout">
     <div id="map" class="map" aria-label="Map of rain and stream gauges"></div>
 
-    <aside class="panel" id="panel">
+    <button type="button" class="panel-tab" id="panel-tab" aria-controls="panel" aria-expanded="false"
+      title="Show search, gauge details and map options">
+      <span class="panel-tab-arrow" aria-hidden="true">◀</span>
+      <span class="panel-tab-text">Details</span>
+      <span class="panel-tab-dot" id="panel-tab-dot" hidden></span>
+    </button>
+
+    <aside class="panel" id="panel" aria-label="Search, gauge details and map options">
       <section class="search" aria-label="Find a place">
         <form id="search-form" role="search">
           <label for="search-input" class="visually-hidden">Find a place or address</label>

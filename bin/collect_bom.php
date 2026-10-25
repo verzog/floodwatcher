@@ -112,6 +112,8 @@ try {
     $metaage = time() - (int) ($state['meta_time'] ?? 0);
     $force = in_array('refresh', $argv ?? [], true);
     if ($force || $hasgauges === 0 || $metaage > (int) $cfg['metadata_minutes'] * 60) {
+        $before = array_flip($db->query("SELECT sensor_id FROM sensors WHERE source = 'bom' AND active = 1")
+            ->fetchAll(PDO::FETCH_COLUMN));
         $exclude = sfw_csv_map($cfg['exclude_file']);
         $tidal = sfw_csv_map($cfg['tidal_file']);
         $river = sfw_bom_read_pages($base, sfw_bom_pages($cfg, 'river_maps', 'river_map'), 'sfw_bom_parse_river_map', $notes);
@@ -200,6 +202,13 @@ try {
         }
         $db->commit();
         $state['meta_time'] = time();
+        // New gauges (a catchment just added, say): read the last few hours' files again, so they
+        // start with some history instead of none. Readings already stored are skipped.
+        $new = count(array_diff_key($keep, $before));
+        if ($new > 0 && $before !== []) {
+            unset($state['done']['IDZ65911'], $state['done']['IDZ65901']);
+            $notes[] = "{$new} new gauges: reloading the last few hours";
+        }
         sfw_state_write('bom', $state);
         ksort($counts);
         $notes[] = sprintf('gauge list refreshed: %d river (%s), %d rain', count($included),

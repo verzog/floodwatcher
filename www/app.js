@@ -1099,6 +1099,7 @@
     chartBox.appendChild(el('p', 'small', 'Loading graph…'));
     detail.appendChild(chartBox);
 
+    panelNudge();
     fetch('data/series/' + encodeURIComponent(id) + '.json?t=' + state.data.generated)
       .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.json(); })
       .then(function (series) {
@@ -2951,6 +2952,34 @@
         alertBox.hidden = false;
       });
   }
+
+  // ---------- Side panel (search, gauge details, options): opened and closed by its tab ----------
+
+  var PANEL_KEY = 'floodwatcher.panelOpen';
+  var panelTab = document.getElementById('panel-tab');
+
+  /** Open or close the side panel; remembered in this browser. */
+  function setPanel(open) {
+    document.body.classList.toggle('panel-open', open);
+    panelTab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    panelTab.title = open ? 'Hide the panel' : 'Show search, gauge details and map options';
+    if (open) { document.getElementById('panel-tab-dot').hidden = true; }
+    memSet(PANEL_KEY, open);
+  }
+
+  /** Something new in the panel while it's closed: a dot on the tab says so. */
+  function panelNudge() {
+    if (!document.body.classList.contains('panel-open')) { document.getElementById('panel-tab-dot').hidden = false; }
+  }
+
+  panelTab.addEventListener('click', function () { setPanel(!document.body.classList.contains('panel-open')); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.body.classList.contains('panel-open')) {
+      setPanel(false);
+      panelTab.focus();
+    }
+  });
+  setPanel(memGet(PANEL_KEY) === true);
 
   // ---------- Controls ----------
 
