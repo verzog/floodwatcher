@@ -26,6 +26,7 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/http.php';
+require dirname(__DIR__) . '/lib/wmip.php';
 require dirname(__DIR__) . '/lib/store.php';
 require dirname(__DIR__) . '/lib/bom.php';
 require dirname(__DIR__) . '/lib/arcgis.php';
@@ -142,12 +143,9 @@ try {
     foreach (array_chunk($sites, 20) as $chunk) {
         foreach ($chunk as $site) {
             try {
-                $data = sfw_http_post_json($qurl, ['function' => 'get_ts_traces', 'version' => '2', 'params' => [
-                    'site_list' => $site, 'datasource' => 'AT', 'varfrom' => '100.00', 'varto' => '100.00',
-                    'data_type' => 'point', 'interval' => 'hour', 'multiplier' => '1',
-                    'start_time' => gmdate('YmdHis', time() - 7 * 86400 + $offset),
-                    'end_time' => gmdate('YmdHis', time() + $offset),
-                ]]);
+                $data = sfw_wmip_traces($qurl,
+                    ['datasource' => 'AT', 'varfrom' => '100.00', 'varto' => '100.00', 'data_type' => 'point'],
+                    $site, time() - 7 * 86400, time(), $offset);
             } catch (Throwable $e) {
                 $failed[] = $site;
                 if (count($failed) >= 15) {
