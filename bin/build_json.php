@@ -38,6 +38,7 @@ require dirname(__DIR__) . '/lib/floodmask.php';
 require dirname(__DIR__) . '/lib/network.php';
 require dirname(__DIR__) . '/lib/dams.php';
 require dirname(__DIR__) . '/lib/catchments.php';
+require dirname(__DIR__) . '/lib/wu.php';
 
 $config = sfw_config();
 $outdir = $config['public_data_dir'];
@@ -401,17 +402,14 @@ foreach ($items as $id => $it) {
             $near[] = sfw_rain_between($byid[$oid] ?? [], $from, $now);
         }
     }
-    if (count($near) < 2 || $mine === null) {
-        continue; // Not enough official gauges nearby to judge.
+    $verdict = sfw_wu_disagreement((float) $mine, $near, (float) $wucfg['check_min_mm'], (float) $wucfg['check_low_share']);
+    if ($verdict === null) {
+        continue; // Too few official gauges nearby, or it looks fine.
     }
-    sort($near);
-    $median = (float) $near[intdiv(count($near), 2)];
     $hours = (int) round(($now - $from) / 3600);
-    if ($median >= (float) $wucfg['check_min_mm'] && $mine < (float) $wucfg['check_low_share'] * $median) {
-        $items[$id]['note'] = sprintf('reads much less than official gauges nearby (%.0f mm vs about %.0f mm in %d hours)', $mine, $median, $hours);
-    } elseif ($mine >= 20 && $mine > 3 * $median + 10) {
-        $items[$id]['note'] = sprintf('reads much more than official gauges nearby (%.0f mm vs about %.0f mm in %d hours)', $mine, $median, $hours);
-    }
+    $items[$id]['note'] = $verdict['level'] === 'low'
+        ? sprintf('reads much less than official gauges nearby (%.0f mm vs about %.0f mm in %d hours)', $mine, $verdict['median'], $hours)
+        : sprintf('reads much more than official gauges nearby (%.0f mm vs about %.0f mm in %d hours)', $mine, $verdict['median'], $hours);
 }
 
 // ---------- Merge gauges at the same spot into one marker ----------
