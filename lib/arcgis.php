@@ -154,10 +154,9 @@ function sfw_arc_features(string $layerurl, array $ids, float $offset, string $f
         'outFields'          => $fields,
         'returnGeometry'     => 'true',
         'outSR'              => 4326,
-        'maxAllowableOffset' => $offset,
         'geometryPrecision'  => 6,
         'f'                  => 'json',
-    ]);
+    ] + ($offset > 0 ? ['maxAllowableOffset' => $offset] : []));
     $data = sfw_http_get_json($url);
     if (isset($data['error'])) {
         throw new RuntimeException('Map service error: ' . json_encode($data['error']));

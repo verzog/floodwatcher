@@ -94,12 +94,33 @@ try {
     $basins = [];     // Basin number => name, packed shapes.
     $livechunks = []; // Requests that included a live catchment's shape, to fetch again in detail.
     $fieldlist = "{$numfield},{$namefield}";
-    $fetch = static function (array $chunk, float $offset) use ($url, $fieldlist): array {
-        try {
-            return sfw_arc_features($url, $chunk, $offset, $fieldlist);
-        } catch (Throwable $e) {
-            throw new RuntimeException('shapes ' . implode(', ', $chunk) . ': ' . $e->getMessage(), 0, $e);
+    // The service sometimes fails on a request (a particular shape, or just now and then). A
+    // failed batch is tried again, then one shape at a time; a shape that still fails is left out
+    // and listed in the log.
+    $skipped = [];
+    $fetch = static function (array $chunk, float $offset) use ($url, $fieldlist, &$skipped): array {
+        for ($try = 0; $try < 2; $try++) {
+            try {
+                return sfw_arc_features($url, $chunk, $offset, $fieldlist);
+            } catch (Throwable $e) {
+                sleep(2);
+            }
         }
+        $got = [];
+        foreach ($chunk as $id) {
+            try {
+                array_push($got, ...sfw_arc_features($url, [$id], $offset, $fieldlist));
+            } catch (Throwable $e) {
+                try {
+                    // Without simplifying, in case that's what the service trips on.
+                    array_push($got, ...sfw_arc_features($url, [$id], 0.0, $fieldlist));
+                } catch (Throwable $e2) {
+                    $skipped[$id] = $e2->getMessage();
+                }
+            }
+            usleep(300000);
+        }
+        return $got;
     };
     foreach (sfw_arc_chunks($ids, 5) as $chunk) {
         foreach ($fetch($chunk, (float) $cfg['list_offset']) as $f) {
@@ -189,8 +210,13 @@ try {
         array_keys($foundlive),
         $foundlive
     )));
+    if ($skipped) {
+        $message .= '; the map service wouldn\'t give shapes ' . implode(', ', array_keys($skipped))
+            . ' (left out until the weekly run tries again)';
+    }
     if ($missing) {
-        $message .= '; not found on the state map (check their basin numbers): ' . implode(', ', $missing);
+        $message .= '; not found on the state map (check their basin numbers, or a left-out shape): '
+            . implode(', ', $missing);
     }
     sfw_run_finish($runid, $missing ? 'error' : 'ok', count($ids), count($out), null, $message);
     sfw_log('Catchments: ' . $message . '.');
