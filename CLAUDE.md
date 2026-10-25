@@ -2,7 +2,7 @@
 
 Read this first. It covers what the project is, how it fits together, how to release and deploy,
 how to add a catchment, and the mistakes already made so they aren't made again.
-Last updated 25/10/2026, at version 0.19.9.
+Last updated 25/10/2026, at version 0.19.10.
 
 ## 1. The project and the person
 
@@ -241,9 +241,14 @@ behave the same, then fix.
    operational releases ("Somerset into Wivenhoe"); "are not expected" is not a release.
 7. **The run log's `source` column is VARCHAR(8)**: names like `catchments` don't fit (used
    `basins`).
-8. **Settings merge by position for lists** (`array_replace_recursive`). A settings file that
-   overrides `overlays` → `layers` must list them in the same order as `lib/defaults.php`. When
-   a layer was inserted in 0.19, the test settings silently gave layers the wrong URLs.
+8. **Settings merge (0.19.10 onward): keyed lists by key, every other list replaced.**
+   `sfw_settings_merge` (lib/bootstrap.php) replaced `array_replace_recursive`. Lists whose every
+   entry has a `key` — the flood-map layers (`overlays` → `layers`), the dams (`dams` → `list`)
+   and the prediction rules (`potential`) — merge by that key, so a config can patch or add one
+   entry by naming its key regardless of order or length. Any other list a config sets replaces
+   the default wholesale (never merged by position). `dev/test_settings_merge.php` (run in CI)
+   pins this down. Before 0.19.10 lists merged by position: inserting a layer in 0.19 silently
+   gave the test settings' layers the wrong URLs. Give each override entry its `key`.
 9. **Don't truncate a file you're about to read.** `open(p,'w').write(open(p).read()…)` emptied
    `version.php` once (caught before commit). Read first, then write.
 10. **CSS `display` beats the `hidden` attribute.** Rows with `display: flex` stayed visible when

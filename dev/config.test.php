@@ -25,18 +25,18 @@ return [
         'grid_step' => 0.5],
     'catchments' => ['basins_url' => 'http://127.0.0.1:8103/x/basins'],
     'dams'     => ['seqwater_url' => 'http://127.0.0.1:8103/seq/levels', 'releases_url' => 'http://127.0.0.1:8103/seq/release'],
-    // Settings are merged by position for lists, so this list must match lib/defaults.php's
-    // 'overlays' => 'layers' one for one, in the same order.
+    // Layers merge onto lib/defaults.php by their 'key' now (not by position), so each entry just
+    // points one layer at the mock service; order and length no longer have to match.
     'overlays' => [
         'batch'          => 50,
         'likelihood_url' => 'http://127.0.0.1:8103/x/Flood_Risk_Overall',
         'layers'         => [
-            ['url' => 'http://127.0.0.1:8103/x/floodplain'],
-            ['url' => 'http://127.0.0.1:8103/x/floodplain_mary', 'where' => '1=1'],
-            ['url' => 'http://127.0.0.1:8103/x/areas'],
-            ['url' => 'http://127.0.0.1:8103/x/flood2011'],
-            ['url' => 'http://127.0.0.1:8103/x/flood2022'],
-            ['url' => 'http://127.0.0.1:8103/x/flood1974'],
+            ['key' => 'floodplain', 'url' => 'http://127.0.0.1:8103/x/floodplain'],
+            ['key' => 'floodplain_mary', 'url' => 'http://127.0.0.1:8103/x/floodplain_mary', 'where' => '1=1'],
+            ['key' => 'areas', 'url' => 'http://127.0.0.1:8103/x/areas'],
+            ['key' => 'flood2011', 'url' => 'http://127.0.0.1:8103/x/flood2011'],
+            ['key' => 'flood2022', 'url' => 'http://127.0.0.1:8103/x/flood2022'],
+            ['key' => 'flood1974', 'url' => 'http://127.0.0.1:8103/x/flood1974'],
         ],
     ],
 ];

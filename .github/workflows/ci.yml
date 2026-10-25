@@ -27,6 +27,8 @@ jobs:
           coverage: none
       - name: PHP syntax
         run: find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l > /dev/null
+      - name: Settings-merge unit test
+        run: php dev/test_settings_merge.php
 
   page:
     runs-on: ubuntu-latest
