@@ -18,6 +18,16 @@
   var STALE_MINUTES = 30;           // Warn if the newest reading is older than this.
   var TZ = 'Australia/Brisbane';
 
+  // Escape text from outside sources for the few places it goes into HTML. Leaflet tooltips and
+  // popups render a string argument as innerHTML (in every Leaflet version), so a gauge, dam,
+  // camera or road name that contained markup would otherwise run. Names reach the map as plain
+  // text, so escaping is invisible for them and only neutralises a crafted one. Popups build DOM
+  // nodes with textContent and don't need this.
+  var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return ESC[c]; });
+  }
+
   var TREND_LABELS = {
     rising_fast: 'Rising fast',
     rising: 'Rising',
@@ -242,7 +252,7 @@
   function streamMarker(s) {
     var suspect = !!s.note;
     var tidal = s.tidal === 'yes' || s.tidal === 'partial';
-    var label = s.name + ' — ';
+    var label = esc(s.name) + ' — ';
 
     // At or above an official flood level: a diamond in the flood class colour.
     if (!suspect && flooding(s.flood_class)) {
@@ -316,7 +326,7 @@
     }
     var marker = L.marker([s.lat, s.lon], { icon: icon, keyboard: true });
     var asAt = rainAsAt(s, state.rainKey);
-    marker.bindTooltip(s.name + ' — ' + (unknown ? 'not reporting' : fmtMm(mm) + ' mm' + (asAt ? ' (' + asAt + ')' : '')));
+    marker.bindTooltip(esc(s.name) + ' — ' + (unknown ? 'not reporting' : fmtMm(mm) + ' mm' + (asAt ? ' (' + asAt + ')' : '')));
     return marker;
   }
 
@@ -733,7 +743,7 @@
         icon: L.divIcon({ className: '', html: damIconHtml(d.state), iconSize: [0, 0] }),
         keyboard: true, zIndexOffset: 600, title: d.name + ': ' + (DAM_STATES[d.state] || d.state).toLowerCase()
       });
-      m.bindTooltip(d.name + ' — ' + (DAM_STATES[d.state] || d.state).toLowerCase());
+      m.bindTooltip(esc(d.name) + ' — ' + esc((DAM_STATES[d.state] || d.state).toLowerCase()));
       m.bindPopup(function () { return damPopup(d); });
       state.damLayer.addLayer(m);
     });
@@ -1287,7 +1297,7 @@
       if (!/^https:\/\//i.test(c.url) || !inCatchment(c)) { return; }
       var icon = L.divIcon({ className: '', html: CAMERA_HTML, iconSize: [0, 0] });
       var m = L.marker([c.lat, c.lon], { icon: icon, keyboard: true, title: c.name + ' camera' });
-      m.bindTooltip(c.name + ' — flood camera');
+      m.bindTooltip(esc(c.name) + ' — flood camera');
       m.bindPopup(cameraPopup(c));
       state.cameraLayer.addLayer(m);
     });
@@ -1698,7 +1708,7 @@
     var events = (data.events || []).filter(inCatchment);
     events.forEach(function (ev) {
       var colour = ev.closed ? ROAD_COLOURS.closed : ROAD_COLOURS.flooding;
-      var label = (ev.closed ? 'Road closed' : 'Flooding') + ' — ' + ([ev.road, ev.locality].filter(Boolean).join(', ') || 'road');
+      var label = (ev.closed ? 'Road closed' : 'Flooding') + ' — ' + ([ev.road, ev.locality].filter(Boolean).map(esc).join(', ') || 'road');
       var popup = roadPopup(ev);
       (ev.lines || []).forEach(function (line) {
         var pl = L.polyline(line, {
