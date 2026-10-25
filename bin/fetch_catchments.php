@@ -57,12 +57,10 @@ function sfw_basin_name(string $name): string
 
 try {
     $url = (string) $cfg['basins_url'];
-    $rows = sfw_arc_attributes($url);
-    if (!$rows) {
-        throw new RuntimeException('the map service returned no drainage basins');
-    }
-    // The basin number and name fields (named basin_number and basin_name at the time of writing).
-    $fields = array_keys($rows[0]);
+    // The layer's fields: the basin number and name (basin_number and basin_name at the time of
+    // writing), found by name so a renamed field is reported rather than guessed.
+    $info = sfw_arc_layer_info($url);
+    $fields = array_keys($info['fields']);
     $pick = static function (array $want) use ($fields): ?string {
         foreach ($want as $w) {
             foreach ($fields as $f) {
@@ -78,6 +76,12 @@ try {
     if ($numfield === null || $namefield === null) {
         throw new RuntimeException('no basin number or name field (fields: ' . implode(', ', $fields) . ')');
     }
+    // Every shape's id, then the number and name a few shapes at a time.
+    $ids = sfw_arc_ids($url);
+    if (!$ids) {
+        throw new RuntimeException('the map service returned no drainage basins');
+    }
+    $rows = sfw_arc_attributes_by_ids($url, $ids, [$numfield, $namefield], $info['idfield']);
 
     // Live catchments by basin number.
     $livebybasin = [];
@@ -106,7 +110,12 @@ try {
         $minm2 = (float) ($live ? 100000 : 2000000); // Leave out tiny islands from the simple outlines.
         $packed = [];
         foreach (sfw_arc_chunks($b['ids'], $live ? 1 : 5) as $chunk) {
-            foreach (sfw_arc_features($url, $chunk, $offset) as $f) {
+            try {
+                $got = sfw_arc_features($url, $chunk, $offset);
+            } catch (Throwable $e) {
+                throw new RuntimeException("outline of {$b['name']} (basin {$num}): " . $e->getMessage(), 0, $e);
+            }
+            foreach ($got as $f) {
                 $p = sfw_arc_pack($f['geometry'] ?? [], $minm2);
                 if ($p !== null) {
                     $packed[] = $p;
