@@ -2,7 +2,7 @@
 
 Read this first. It covers what the project is, how it fits together, how to release and deploy,
 how to add a catchment, and the mistakes already made so they aren't made again.
-Last updated 25/10/2026, at version 0.19.6.
+Last updated 25/10/2026, at version 0.19.7.
 
 ## 1. The project and the person
 
@@ -79,9 +79,11 @@ Other scripts: `migrate.php` (database upgrades from `sql/upgrade_*.sql`), `buil
 `history_fetch.php` (WMIP history for working out prediction rules), `push_setup.php`,
 `import_sensors.php`.
 
-Key library files (`lib/`): `defaults.php` (**every setting**, with comments), `catchments.php`
-(outlines, which catchment a point is in), `bom.php`, `warnings.php`, `alerts.php` (gauge
-alerts, spike doubt), `potential.php` (prediction rules), `network.php` (river network),
+Key library files (`lib/`): `bootstrap.php` (settings + database handle), `store.php` (sensor,
+reading and run-log helpers), `http.php` (HTTP/FTP), `defaults.php` (**every setting**, with
+comments), `catchments.php` (outlines, which catchment a point is in), `bom.php`, `warnings.php`,
+`alerts.php` (gauge alerts; it consumes the spike-doubt flag, which is computed in
+`build_json.php`), `potential.php` (prediction rules), `network.php` (river network),
 `dams.php`, `floodmask.php`, `push.php`, `traffic.php`, `arcgis.php`, `wu.php`.
 
 Data files (`data/`): `network.csv` (which gauge flows into which; `dam` flag when the downstream
@@ -284,5 +286,7 @@ behave the same, then fix.
 - `var/vapid.json` (push keys) must be kept and backed up: losing it breaks every sign-up.
 - Push sign-ups store only the browser's push address and keys, watched gauge ids, saved areas
   and choices. No names, emails or IP addresses; community station names aren't stored.
-- Everything from outside sources is shown with `textContent`, never as HTML.
+- Everything from outside sources is shown with `textContent`, never as raw HTML. The few map
+  tooltips that take a string escape the name first (`esc()` in `www/app.js`), because Leaflet
+  renders a tooltip/popup string as HTML.
 - Web server logs and GoAccess reports contain IP addresses: don't publish them.
