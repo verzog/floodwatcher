@@ -95,8 +95,8 @@ B540071-H,B540274-H,,Corinda
 B540274-H,B540683-H,,Oxley Creek meets the Brisbane River between Jindalee and St Lucia
 #
 # ======== Mary River catchment ========
-# Drafted from gauge positions only: every "check" needs confirming by someone who knows the river.
-# Miva and Dagun Pocket are to be added once bin/discover_catchment.php mary has listed their ids.
+# Ordered by gauge position (BoM, 25/10/2026). Every "check" needs confirming by someone who knows
+# the river.
 # ---- Mary River ----
 B540620-H,B540332-H,,Conondale to Bellbird Creek
 B540332-H,B540331-H,,Bellbird Creek to Kenilworth Homestead
@@ -104,8 +104,14 @@ B540331-H,B540330-H,,Kenilworth to Moy Pocket
 B540330-H,B540827-H,,Moy Pocket to Coles Crossing
 B540827-H,B040993-H|B540215-H,,Coles Crossing to Gympie
 B040993-H|B540215-H,B040824-H,,Gympie (town gauge and weir)
-B040824-H,B540706-H,,Fishermans Pocket to Tiaro; check: Miva is between them
-B540706-H,B040443-H,,Tiaro to Maryborough
+B040824-H,B540687-H,,Fishermans Pocket to Sexton
+B540687-H,B040826-H,,Sexton to Miva
+B040826-H,B040833-H,,Miva to Home Park
+B040833-H,B540706-H,,Home Park to Tiaro
+B540706-H,B540686-H,,Tiaro to Owanyilla
+B540686-H,B540039-H,,Owanyilla to The Barrage
+B540039-H,B040443-H,,The Barrage to Maryborough (Portside)
+B040443-H,B540637-H,,Maryborough (Portside) to Churchill Street
 # ---- Obi Obi Creek ----
 B540426-H,B540403-H,,Baroon Pocket Dam
 B540403-H,B540331-H,,Obi Obi Creek at Gardners Falls; check: joins the Mary River near Kenilworth
@@ -127,7 +133,15 @@ B540326-H,B040993-H|B540215-H,,Six Mile Creek at Cooran; check: joins the Mary R
 # ---- Deep Creek and Glastonbury Creek (Gympie) ----
 B540476-H,B540618-H,,Cedar Pocket Dam
 B540618-H,B040824-H,,Deep Creek; check: joins the Mary River at Gympie
-B540404-H,B040824-H,,Glastonbury Creek; check: joins the Mary River near Fishermans Pocket
-# ---- Wide Bay and Tinana creeks ----
-B040811-H,B540706-H,,Wide Bay Creek at Kilkivan; check: joins the Mary River near Miva
-B540288-H,B040443-H,,Tinana Creek at Tagigan Road; check: joins the Mary River at Maryborough
+B540404-H,B540687-H,,Glastonbury Creek; check: joins the Mary River between Fishermans Pocket and Sexton
+# ---- Wide Bay and Munna creeks ----
+B040811-H,B540043-H,,Wide Bay Creek at Kilkivan to Brooyar
+B540043-H,B040826-H,,Wide Bay Creek at Brooyar; check: joins the Mary River near Miva
+B040825-H,B040833-H,,Munna Creek at Marodian; check: joins the Mary River between Miva and Home Park
+# ---- Tinana Creek (meets the Mary River at Maryborough) ----
+B540288-H,B040679-H,,Tagigan Road to Bauple East
+B040679-H,B540678-H,,Bauple East to Magnolia
+B540678-H,B040896-H,,Magnolia to Teddington Weir
+B040896-H,B540677-H,,Teddington Weir to Bidwell
+B540677-H,B540027-H,,Bidwell to Tinana Barrage
+B540027-H,B040443-H,,Tinana Creek; check: joins the Mary River just above Maryborough (Portside)
