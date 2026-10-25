@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.19.9
+# Flood Watcher (SEQ Flood Watch) — version 0.19.10
 
 A community flood dashboard for Queensland catchments, starting with the Brisbane River and the
 Mary River. It collects rainfall and river heights from public sources, stores them, and shows
@@ -22,6 +22,17 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.19.10
+
+- Safer settings. Lists of things that each have a name — the flood-map layers, the dams and the
+  prediction rules — now merge onto the defaults **by that name**, so a setting in
+  `config.local.php` can change or add one of them just by naming it, without copying the whole
+  list in the right order. (Before, lists merged by position, which could silently drop an
+  override onto the wrong entry.) Any other list a config sets now replaces the default list
+  outright. No change to the live site. **If your `config.local.php` already overrides one of
+  those lists, give each entry its `key`** (e.g. `['key' => 'floodplain', 'url' => '…']`) so it
+  patches the right one.
 
 ## Changes in 0.19.9
 
