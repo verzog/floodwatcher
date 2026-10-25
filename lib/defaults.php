@@ -32,6 +32,9 @@ return [
         'backfill_days'  => 3,    // How far back the first run loads.
         'overlap_hours'  => 3,    // Re-check this far back on each run.
         'tz_offset_hours' => 10,  // WMIP times are Brisbane time (UTC+10); converted to UTC.
+        // During the daily station-capability recheck, skip a station that times out (HTTP 408)
+        // and carry on; if this many fail, treat the service as down and error the run (lesson 5).
+        'max_station_timeouts' => 15,
     ],
 
     // Bureau of Meteorology anonymous FTP products.
