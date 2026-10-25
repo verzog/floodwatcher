@@ -35,6 +35,7 @@ function sfw_upsert_sensor(array $s): void
                 datum = COALESCE(VALUES(datum), datum),
                 latitude = VALUES(latitude),
                 longitude = VALUES(longitude),
+                catchment = VALUES(catchment),
                 tidal = COALESCE(VALUES(tidal), tidal),
                 flood_minor = VALUES(flood_minor),
                 flood_moderate = VALUES(flood_moderate),

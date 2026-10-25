@@ -8,7 +8,7 @@
  * GET  push.php                      -> {"publicKey": "..."} (the server's VAPID public key)
  * POST push.php  (JSON body)
  *   {"action": "subscribe", "subscription": {...}, "watch": ["B540063-H"], "warnings": true,
- *    "areas": [{"name": "Gatton", "s": -27.6, "w": 152.2, "n": -27.5, "e": 152.3}]}
+ *    "warn_catchment": "mary", "areas": [{"name": "Gatton", "s": -27.6, "w": 152.2, "n": -27.5, "e": 152.3}]}
  *   {"action": "unsubscribe", "endpoint": "https://..."}
  *   {"action": "test", "endpoint": "https://..."}   (at most once a minute per browser)
  *
@@ -87,8 +87,14 @@ try {
         }
         $watch = array_slice(array_values(array_unique($watch)), 0, (int) $opts['max_watch']);
         $warnings = !empty($req['warnings']) ? 1 : 0;
+        // Which catchment "all BoM flood warnings" is for: a live catchment, or every one ("all").
+        $warncatchment = (string) ($req['warn_catchment'] ?? '');
+        $livekeys = array_map('strval', array_keys($config['catchments']['live'] ?? []));
+        if ($warncatchment !== 'all' && !in_array($warncatchment, $livekeys, true)) {
+            $warncatchment = (string) ($config['catchments']['default'] ?? 'brisbane');
+        }
         $predictive = !array_key_exists('predictive', $req) || !empty($req['predictive']) ? 1 : 0;
-        // Saved areas: a name and a box, inside South East Queensland, at most five.
+        // Saved areas: a name and a box, inside Queensland, at most five.
         $areas = [];
         foreach ((array) ($req['areas'] ?? []) as $a) {
             if (!is_array($a) || count($areas) >= 5) {
@@ -101,7 +107,7 @@ try {
             }
             if ($name === '' || mb_strlen($name) > 40 || in_array(false, $box, true)
                 || $box['s'] >= $box['n'] || $box['w'] >= $box['e']
-                || $box['s'] < -30.0 || $box['n'] > -24.0 || $box['w'] < 150.0 || $box['e'] > 155.0) {
+                || $box['s'] < -30.0 || $box['n'] > -9.0 || $box['w'] < 137.0 || $box['e'] > 155.0) {
                 continue;
             }
             $areas[] = ['name' => $name] + array_map(static fn(float $v): float => round($v, 4), $box);
@@ -116,14 +122,14 @@ try {
         }
         $now = sfw_now_utc();
         $db->prepare(
-            'INSERT INTO push_subscriptions (endpoint_hash, endpoint, p256dh, auth, watch, areas, warnings, predictive,
-                 created_utc, updated_utc)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            'INSERT INTO push_subscriptions (endpoint_hash, endpoint, p256dh, auth, watch, areas, warnings,
+                 warn_catchment, predictive, created_utc, updated_utc)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth), watch = VALUES(watch),
-                 areas = VALUES(areas), warnings = VALUES(warnings), predictive = VALUES(predictive),
-                 updated_utc = VALUES(updated_utc), failures = 0'
+                 areas = VALUES(areas), warnings = VALUES(warnings), warn_catchment = VALUES(warn_catchment),
+                 predictive = VALUES(predictive), updated_utc = VALUES(updated_utc), failures = 0'
         )->execute([$hash, $endpoint, $p256dh, $auth, json_encode($watch),
-            json_encode($areas, JSON_UNESCAPED_UNICODE), $warnings, $predictive, $now, $now]);
+            json_encode($areas, JSON_UNESCAPED_UNICODE), $warnings, $warncatchment, $predictive, $now, $now]);
         sfw_reply(200, ['ok' => true, 'watching' => count($watch), 'areas' => count($areas), 'warnings' => (bool) $warnings]);
     }
 

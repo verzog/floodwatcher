@@ -126,6 +126,7 @@ function sfw_potential_markers(array $items, array $byid, int $now, array $rules
             'id'        => 'P-' . $r['key'],
             'type'      => 'potential',
             'name'      => ucfirst($r['name']),
+            'catchment' => (string) ($r['catchment'] ?? 'brisbane'),
             'lat'       => (float) $r['lat'],
             'lon'       => (float) $r['lon'],
             'bbox'      => $r['bbox'] ?? null,

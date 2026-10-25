@@ -8,14 +8,15 @@
  *
  * Usage: php bin/fetch_overlays.php            (all layers; cron runs it weekly)
  *        php bin/fetch_overlays.php flood2011  (one layer, by its key in lib/defaults.php)
- *        php bin/fetch_overlays.php if-missing (only if the flood maps have never been downloaded;
- *                                               the YunoHost app's cron uses this after install)
+ *        php bin/fetch_overlays.php if-missing (only layers never downloaded, such as after install
+ *                                               or when a catchment's layers are added; cron runs it)
  *
  * Writes into the public web folder:
  *   data/overlays/<key>.json   one packed file per layer (format described in lib/arcgis.php)
  *   data/overlays/index.json   the list of layers the page should offer
  *
- * If a layer fails to download, its previous file is kept and the others carry on.
+ * If a layer fails to download, its previous file is kept and the others carry on. Each layer is
+ * listed with its catchment, and the page offers it only while that catchment is shown.
  */
 
 declare(strict_types=1);
@@ -28,16 +29,19 @@ require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/http.php';
 require dirname(__DIR__) . '/lib/store.php';
 require dirname(__DIR__) . '/lib/arcgis.php';
+require dirname(__DIR__) . '/lib/catchments.php';
 
 $config = sfw_config();
 $opts = $config['overlays'];
 $outdir = $config['public_data_dir'] . '/overlays';
 $only = $argv[1] ?? null;
-if ($only === 'if-missing') {
-    if (is_file("{$outdir}/index.json")) {
-        exit(0); // Already downloaded; the weekly run keeps them up to date.
-    }
+$missingonly = $only === 'if-missing';
+if ($missingonly) {
     $only = null;
+    $missing = array_filter($opts['layers'], static fn(array $l): bool => !is_file("{$outdir}/{$l['key']}.json"));
+    if (is_file("{$outdir}/index.json") && !$missing) {
+        exit(0); // All downloaded; the weekly run keeps them up to date.
+    }
 }
 $lock = sfw_lock('fetch_overlays');
 
@@ -54,11 +58,24 @@ foreach ($opts['layers'] as $layer) {
         sfw_log("Skipping overlay with unusable key '{$key}'.");
         continue;
     }
-    if ($only !== null && $only !== $key) {
+    if (($only !== null && $only !== $key) || ($missingonly && is_file("{$outdir}/{$key}.json"))) {
         continue;
     }
     try {
-        $ids = sfw_arc_ids($layer['url'], (string) ($layer['where'] ?? '1=1'));
+        // A layer for one catchment's box ('box_of'), and perhaps only the shapes centred inside its
+        // outline ('clip'): needs the outlines from bin/fetch_catchments.php.
+        $box = null;
+        $rings = null;
+        if (!empty($layer['box_of'])) {
+            $c = sfw_catchments_load()[(string) $layer['box_of']] ?? null;
+            if ($c === null || !is_array($c['bbox'])) {
+                throw new RuntimeException('the ' . $layer['box_of'] . ' catchment outline isn\'t downloaded yet '
+                    . '(bin/fetch_catchments.php); will try again');
+            }
+            $box = $c['bbox'];
+            $rings = !empty($layer['clip']) ? sfw_catchment_rings((string) $layer['box_of']) : null;
+        }
+        $ids = sfw_arc_ids($layer['url'], (string) ($layer['where'] ?? '1=1'), $box);
         $batch = max(1, (int) ($layer['batch'] ?? $opts['batch']));
         if (!$ids) {
             throw new RuntimeException('the service returned no shapes');
@@ -71,6 +88,13 @@ foreach ($opts['layers'] as $layer) {
             }
             foreach (sfw_arc_features($layer['url'], $chunk, (float) $layer['offset']) as $f) {
                 $packed = sfw_arc_pack($f['geometry'] ?? [], (float) $layer['min_m2']);
+                if ($packed !== null && $rings !== null) {
+                    // Keep only shapes centred inside the catchment.
+                    $mid = [($packed['b'][1] + $packed['b'][3]) / 200000, ($packed['b'][0] + $packed['b'][2]) / 200000];
+                    if (!sfw_rings_contain($rings, $mid[0], $mid[1])) {
+                        continue;
+                    }
+                }
                 if ($packed === null) {
                     $dropped++;
                 } else {
@@ -112,7 +136,8 @@ foreach ($opts['layers'] as $layer) {
         continue;
     }
     $index['layers'][] = [
-        'key'     => $key,
+        'key'       => $key,
+        'catchment' => (string) ($layer['catchment'] ?? 'brisbane'),
         'label'   => $layer['label'],
         'hover'   => $layer['hover'],
         'source'  => $layer['source'],

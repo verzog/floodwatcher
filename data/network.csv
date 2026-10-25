@@ -93,3 +93,41 @@ B040791-H,B540432-H,,Stable Swamp Creek at Coopers Plains
 B540432-H,B540274-H,,Stable Swamp Creek; check: joins Oxley Creek near Rocklea
 B540071-H,B540274-H,,Corinda
 B540274-H,B540683-H,,Oxley Creek meets the Brisbane River between Jindalee and St Lucia
+#
+# ======== Mary River catchment ========
+# Drafted from gauge positions only: every "check" needs confirming by someone who knows the river.
+# Miva and Dagun Pocket are to be added once bin/discover_catchment.php mary has listed their ids.
+# ---- Mary River ----
+B540620-H,B540332-H,,Conondale to Bellbird Creek
+B540332-H,B540331-H,,Bellbird Creek to Kenilworth Homestead
+B540331-H,B540330-H,,Kenilworth to Moy Pocket
+B540330-H,B540827-H,,Moy Pocket to Coles Crossing
+B540827-H,B040993-H|B540215-H,,Coles Crossing to Gympie
+B040993-H|B540215-H,B040824-H,,Gympie (town gauge and weir)
+B040824-H,B540706-H,,Fishermans Pocket to Tiaro; check: Miva is between them
+B540706-H,B040443-H,,Tiaro to Maryborough
+# ---- Obi Obi Creek ----
+B540426-H,B540403-H,,Baroon Pocket Dam
+B540403-H,B540331-H,,Obi Obi Creek at Gardners Falls; check: joins the Mary River near Kenilworth
+# ---- Yabba Creek ----
+B540575-H,B540514-H,,Borumba Dam
+B540514-H,B040777-H,,Yabba Creek below Borumba Dam
+B040777-H,B040993-H|B540215-H,,Yabba Creek at Imbil; check: joins the Mary River between Moy Pocket and Gympie
+# ---- Kandanga and Amamoor creeks ----
+B040780-H,B040993-H|B540215-H,,Kandanga Creek at Hygait; check: joins the Mary River above Gympie
+B040778-H,B040993-H|B540215-H,,Amamoor Creek at Zachariah; check: joins the Mary River above Gympie
+# ---- Six Mile Creek ----
+B540779-H,B540778-H,,Cooroy Creek; check: joins Six Mile Creek at Cooroy
+B540778-H,B540777-H,,Six Mile Creek at Cooroy (Elm Street)
+B540777-H,B540463-H|B540755-H,dam,Liane Drive into Lake Macdonald
+B540463-H|B540755-H,B540327-H,,Lake Macdonald Dam
+B540327-H,B540326-H,,Lake Macdonald Drive to Cooran
+B540775-H|B540776-H,B540326-H,,Cooroora Creek at Pomona; check: joins Six Mile Creek above Cooran
+B540326-H,B040993-H|B540215-H,,Six Mile Creek at Cooran; check: joins the Mary River above Gympie
+# ---- Deep Creek and Glastonbury Creek (Gympie) ----
+B540476-H,B540618-H,,Cedar Pocket Dam
+B540618-H,B040824-H,,Deep Creek; check: joins the Mary River at Gympie
+B540404-H,B040824-H,,Glastonbury Creek; check: joins the Mary River near Fishermans Pocket
+# ---- Wide Bay and Tinana creeks ----
+B040811-H,B540706-H,,Wide Bay Creek at Kilkivan; check: joins the Mary River near Miva
+B540288-H,B040443-H,,Tinana Creek at Tagigan Road; check: joins the Mary River at Maryborough

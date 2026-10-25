@@ -28,6 +28,7 @@ require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/http.php';
 require dirname(__DIR__) . '/lib/store.php';
 require dirname(__DIR__) . '/lib/wu.php';
+require dirname(__DIR__) . '/lib/catchments.php';
 
 $config = sfw_config();
 $cfg = $config['wu'];
@@ -45,15 +46,18 @@ $base = rtrim((string) $cfg['base_url'], '/');
 $key = rawurlencode((string) $cfg['api_key']);
 
 /**
- * Publish the working stations for the map (data/community.json).
+ * Publish the working stations for the map (data/community.json), each with its catchment.
+ *
+ * @param array<string, mixed> $config
  */
-function wu_publish(PDO $db, string $outdir): int
+function wu_publish(PDO $db, string $outdir, array $config): int
 {
     $rows = $db->query('SELECT station_id, latitude, longitude FROM wu_stations WHERE active = 1 ORDER BY station_id')->fetchAll();
     $list = array_map(static fn(array $r): array => [
-        'id'  => $r['station_id'],
-        'lat' => (float) $r['latitude'],
-        'lon' => (float) $r['longitude'],
+        'id'        => $r['station_id'],
+        'lat'       => (float) $r['latitude'],
+        'lon'       => (float) $r['longitude'],
+        'catchment' => sfw_catchment_at($config, (float) $r['latitude'], (float) $r['longitude']) ?? 'brisbane',
     ], $rows);
     sfw_write_atomic("{$outdir}/community.json", json_encode(['checked' => time(), 'stations' => $list], JSON_UNESCAPED_SLASHES));
     return count($list);
@@ -70,16 +74,24 @@ $runid = sfw_run_start('wu');
 $messages = [];
 $calls = 0;
 try {
-    $rings = wu_catchment($config['public_data_dir'] . '/overlays/catchment.json');
+    // The live catchments' outlines (bin/fetch_catchments.php).
+    $rings = [];
+    foreach (sfw_catchments_live($config) as $ckey) {
+        array_push($rings, ...sfw_catchment_rings($ckey));
+    }
+    if (!$rings) {
+        throw new RuntimeException('The catchment outlines are missing. Run bin/fetch_catchments.php first, then this again.');
+    }
+    $inside = static fn(float $lat, float $lon): bool => sfw_catchment_at($config, $lat, $lon) !== null;
 
     // ---------- 1. Search the catchment (start of a new check) ----------
     if ($force || ($due && !$pending)) {
-        [$w, $s, $e, $n] = $cfg['bbox'];
+        [$w, $s, $e, $n] = sfw_catchments_extent($config, $cfg['bbox']);
         $step = (float) $cfg['grid_step'];
         $found = [];
         for ($lat = $s + $step / 2; $lat < $n; $lat += $step) {
             for ($lon = $w + $step / 2; $lon < $e; $lon += $step) {
-                if (!wu_in_catchment($lat, $lon, $rings)) {
+                if (!$inside($lat, $lon)) {
                     continue;
                 }
                 if (!wu_budget_take($cfg)) {
@@ -93,7 +105,7 @@ try {
                     $slat = (float) ($loc['latitude'][$i] ?? 0);
                     $slon = (float) ($loc['longitude'][$i] ?? 0);
                     if (is_string($sid) && preg_match('/^[A-Z0-9]{3,20}$/', $sid)
-                        && (int) ($loc['qcStatus'][$i] ?? 0) !== -1 && wu_in_catchment($slat, $slon, $rings)) {
+                        && (int) ($loc['qcStatus'][$i] ?? 0) !== -1 && $inside($slat, $slon)) {
                         $found[$sid] = [round($slat, 2), round($slon, 2)]; // About 1 km.
                     }
                 }
@@ -104,7 +116,7 @@ try {
         $state['found'] = count($found);
         $state['active_now'] = [];
         $state['started_at'] = time();
-        $messages[] = count($found) . ' stations found in the catchment';
+        $messages[] = count($found) . ' stations found in the catchments';
     }
 
     // ---------- 2. Check each station is reporting rainfall ----------
@@ -133,7 +145,7 @@ try {
         unset($pending[$sid]);
         // Publish as we go, so working stations reach the map within a minute or two.
         if (count($active) % 20 === 1 && $o) {
-            wu_publish($db, $config['public_data_dir']);
+            wu_publish($db, $config['public_data_dir'], $config);
         }
         usleep($pause);
     }
@@ -147,7 +159,7 @@ try {
             $place = implode(',', array_fill(0, count($ids), '?'));
             $db->prepare("UPDATE wu_stations SET active = 0 WHERE station_id NOT IN ({$place})")->execute($ids);
         }
-        $published = wu_publish($db, $config['public_data_dir']);
+        $published = wu_publish($db, $config['public_data_dir'], $config);
         $state['finished_at'] = time();
         $state['active_now'] = [];
         $messages[] = sprintf('%d of %d stations are reporting rainfall and are on the map', $published, (int) ($state['found'] ?? 0));

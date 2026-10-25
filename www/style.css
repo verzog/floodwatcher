@@ -35,6 +35,7 @@
   --rain-5: #5b3fa6;
   --dial-track: #e3e9ec;
   --ov-floodplain: #b8477a; /* Flood map shading: state broad-scale floodplain. */
+  --ov-floodplain_mary: #b8477a;
   --ov-areas: #2f7fb8;     /* Council flood areas. */
   --ov-flood2011: #7b4fc9;
   --ov-flood2022: #0f9488;
@@ -50,6 +51,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --ov-floodplain: #e07aa8;
+    --ov-floodplain_mary: #e07aa8;
     --ov-catchment: #e6eef2;
     --predict: #c39cf0;
     --predict-bg: #4a2270;
@@ -137,6 +139,32 @@ a { color: var(--accent); }
 }
 
 .subtitle { color: var(--muted); }
+
+/* The catchment chooser: a select that reads as part of the title. */
+.catchment-pick { display: inline-block; margin-right: 6px; }
+.catchment-pick select {
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 6px;
+  max-width: 62vw;
+  cursor: pointer;
+}
+
+/* Flood map rows for other catchments are hidden (the row's own display would show them). */
+.overlay-row[hidden] { display: none; }
+
+/* A catchment under construction: a calm note under the header. */
+.construction {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  background: var(--predict-soft);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
 
 .freshness {
   color: var(--muted);
@@ -382,7 +410,25 @@ a { color: var(--accent); }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
+
+.alert-head .alert-title { flex: 1; }
+
+/* "All catchments" / "This catchment only" in the alerts card. */
+.alert-scope {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+/* Which catchment an alert is in, when showing all catchments. */
+.alert-where { color: var(--muted); font-size: 0.85em; }
 
 .alert-min {
   font: inherit;
@@ -1377,6 +1423,9 @@ a { color: var(--accent); }
     overflow: visible;
   }
   .subtitle { display: none; }
+  .catchment-pick select { font-size: 0.95rem; padding: 4px 6px; min-height: 36px; }
+  .construction { padding: 5px 12px; font-size: 0.8rem; }
+  .alert-scope { min-height: 40px; }
   /* Phones zoom with two fingers; the buttons would sit over popups on a small map. */
   .leaflet-control-zoom { display: none; }
 }

@@ -134,6 +134,7 @@ function sfw_alerts_update(array $markers, array $state, int $now, array $opts):
             'bbox'          => $m['bbox'] ?? null, // Flood potential rules: the area they cover.
             'gauges'        => $m['gauges'] ?? null, // Flood potential rules: their trigger gauges.
             'area'          => $m['area'] ?? null,   // Flood potential rules: the flood-prone land they cover.
+            'catchment'     => (string) ($m['catchment'] ?? 'brisbane'),
             'not_reporting' => false,
         ];
     }
@@ -144,6 +145,7 @@ function sfw_alerts_update(array $markers, array $state, int $now, array $opts):
             $cleared[] = [
                 'id'    => $id,
                 'name'  => $prev['name'],
+                'catchment' => (string) ($prev['catchment'] ?? 'brisbane'),
                 'at'    => $now,
                 'text'  => match ($prev['kind']) {
                     'flood'          => 'back below the minor flood level', // No alert left means below minor.

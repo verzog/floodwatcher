@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Flood Watcher — Brisbane River catchment</title>
-  <meta name="description" content="Community dashboard of rain and river gauges across the Brisbane River catchment. Not an official warning service.">
+  <meta name="description" content="Community dashboard of rain and river gauges for Queensland catchments, starting with the Brisbane and Mary rivers. Not an official warning service.">
   <meta name="color-scheme" content="light dark">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="style.css">
@@ -18,7 +18,13 @@
   <header class="topbar">
     <div class="brand">
       <h1>Flood Watcher</h1>
-      <span class="subtitle">Brisbane River catchment rain &amp; river levels</span>
+      <label class="catchment-pick">
+        <span class="visually-hidden">Catchment</span>
+        <select id="catchment-select" aria-describedby="catchment-hint">
+          <option value="brisbane">Brisbane River</option>
+        </select>
+      </label>
+      <span class="subtitle" id="catchment-hint">catchment rain &amp; river levels</span>
     </div>
     <div class="freshness" id="freshness" aria-live="polite">Loading…</div>
   </header>
@@ -27,11 +33,12 @@
     <strong>Not an official warning service.</strong>
     Readings are raw and unchecked. For warnings, follow the
     <a href="https://www.bom.gov.au/qld/warnings/" target="_blank" rel="noopener">Bureau of Meteorology</a>
-    and <a href="https://www.brisbane.qld.gov.au/community-and-safety/community-safety/disasters-and-emergencies/be-prepared/storm-safety" target="_blank" rel="noopener">Brisbane City Council</a>.
+    and <span data-catchment="brisbane"><a href="https://www.brisbane.qld.gov.au/community-and-safety/community-safety/disasters-and-emergencies/be-prepared/storm-safety" target="_blank" rel="noopener">Brisbane City Council</a></span><span data-catchment="other" hidden>your council's disaster dashboard</span>.
     In an emergency call <a href="tel:000">000</a>; for SES help call <a href="tel:132500">132 500</a>.
   </div>
 
   <div class="alert" id="stale-alert" hidden></div>
+  <div class="construction" id="construction-note" role="status" hidden></div>
 
   <main class="layout">
     <div id="map" class="map" aria-label="Map of rain and stream gauges"></div>
@@ -54,7 +61,8 @@
       <section class="notify" id="notify" aria-label="Notifications" hidden>
         <h2>Notifications</h2>
         <p class="small" id="notify-status" aria-live="polite"></p>
-        <label class="notify-row"><input type="checkbox" id="notify-warnings" checked> All BoM flood warnings for the catchment</label>
+        <label class="notify-row"><input type="checkbox" id="notify-warnings" checked> All BoM flood warnings for the
+          <span id="notify-warnings-name">Brisbane River</span> catchment</label>
         <label class="notify-row"><input type="checkbox" id="notify-predictive" checked> Predictive flood alerts for your areas
           (this site's estimates)</label>
         <p class="small">Plus alerts for gauges on your watch list (open a gauge and tap ☆ Watch) and for
@@ -102,7 +110,9 @@
         <p class="small">Shading shows where flooding has happened or could happen, not current flooding or
           depth. Hover over the map, or tap it on a phone, to see what applies at that spot.
           The state floodplain map is a rough guide drawn from land shape, not a flood model.</p>
-        <p class="small">Detailed council flood maps:
+        <p class="small" data-catchment="other" hidden>Check your council's flood maps for detail, and the
+          state's <a href="https://floodcheck.information.qld.gov.au/" target="_blank" rel="noopener">FloodCheck</a>.</p>
+        <p class="small" data-catchment="brisbane">Detailed council flood maps:
           <a href="https://www.brisbane.qld.gov.au/community-and-safety/community-safety/disasters-and-emergencies/be-prepared/flooding-in-brisbane/flood-awareness-map" target="_blank" rel="noopener">Brisbane</a>,
           <a href="https://www.lvrc.qld.gov.au/flood-information-portal" target="_blank" rel="noopener">Lockyer Valley</a>,
           <a href="https://www.somerset.qld.gov.au/Our-Services/eServices/Mapping" target="_blank" rel="noopener">Somerset</a>
@@ -135,7 +145,7 @@
           <li><span class="predict-pin predict-pin-watch legend-pin" aria-hidden="true">!</span> Predictive flood alert:
             watch (heavy rain upstream)</li>
         </ul>
-        <p class="small">More flood cameras:
+        <p class="small" data-catchment="brisbane">More flood cameras:
           <a href="https://disaster.ipswich.qld.gov.au/" target="_blank" rel="noopener">Ipswich</a>,
           <a href="https://disaster.lvrc.qld.gov.au/" target="_blank" rel="noopener">Lockyer Valley</a>,
           <a href="https://www.somerset.qld.gov.au/Our-Services/Disaster-Management/Flood-Cameras" target="_blank" rel="noopener">Somerset</a>

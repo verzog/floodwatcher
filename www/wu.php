@@ -51,9 +51,9 @@ if (empty($cfg['enabled']) || trim((string) $cfg['api_key']) === '') {
     wu_reply(503, ['error' => 'Community rain is switched off on this site.']);
 }
 
-// The map box, limited to around the catchment.
+// The map box, limited to Queensland.
 $box = [];
-foreach (['s' => [-30.0, -24.0], 'w' => [150.0, 155.0], 'n' => [-30.0, -24.0], 'e' => [150.0, 155.0]] as $k => [$lo, $hi]) {
+foreach (['s' => [-30.0, -9.0], 'w' => [137.0, 155.0], 'n' => [-30.0, -9.0], 'e' => [137.0, 155.0]] as $k => [$lo, $hi]) {
     $v = filter_input(INPUT_GET, $k, FILTER_VALIDATE_FLOAT);
     if ($v === false || $v === null) {
         wu_reply(400, ['error' => 'Missing map box.']);

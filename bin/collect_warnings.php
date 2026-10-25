@@ -3,13 +3,13 @@
 // Flood Watcher. Copyright (C) 2026 Vernon Spain. See LICENSE.
 
 /**
- * Collect current Bureau of Meteorology flood warnings for the Brisbane River catchment.
+ * Collect current Bureau of Meteorology flood warnings for the live catchments.
  *
  * Usage: php bin/collect_warnings.php   (cron runs it with the BoM collector, every 15 minutes)
  *
  * Reads BoM's Queensland warning products (IDQ2xxxx) from the anonymous FTP site, keeps those
- * whose title or areas name one of our rivers or creeks ('bom' => 'warning_keywords'), drops
- * cancelled and expired ones, and saves var/bom_warnings.json for build_json.php, which adds
+ * whose title or areas name one of the rivers or creeks in a live catchment ('bom' =>
+ * 'warning_keywords'), tags each with its catchments, drops cancelled and expired ones, and saves var/bom_warnings.json for build_json.php, which adds
  * them to the page's alerts. Only changed warnings are downloaded again.
  */
 
@@ -69,7 +69,11 @@ try {
         if ($w['phase'] === 'CAN' || ($w['expires'] !== null && $w['expires'] < $now)) {
             continue;
         }
-        if (sfw_warning_is_ours($w, $cfg['warning_keywords'])) {
+        $w['catchments'] = array_values(array_intersect(
+            sfw_warning_catchments($w, $cfg['warning_keywords']),
+            array_map('strval', array_keys($config['catchments']['live']))
+        ));
+        if ($w['catchments']) {
             $w['final'] = stripos($w['title'], 'final') === 0;
             $ours[] = $w;
         }
@@ -78,7 +82,7 @@ try {
     usort($ours, static fn(array $a, array $b): int => [$rank[$b['level']], $b['issued']] <=> [$rank[$a['level']], $a['issued']]);
 
     sfw_state_write('bom_warnings', ['cache' => $cache, 'fetched' => $now, 'warnings' => $ours]);
-    $message = sprintf('%d current BoM flood warnings for the catchment (of %d in Queensland); %d downloaded.',
+    $message = sprintf('%d current BoM flood warnings for our catchments (of %d in Queensland); %d downloaded.',
         count($ours), count($ids), $fetched);
     sfw_run_finish($runid, 'ok', count($ids), count($ours), null, $message);
     sfw_log('Warnings: ' . $message . ($ours ? ' ' . implode('; ', array_column($ours, 'title')) : ''));

@@ -146,6 +146,7 @@ function sfw_dams_status(array $cfg, array $items, array $byid, array $seq, int 
             'node'        => $d['node'] ?? null,
             'down'        => $d['down'] ?? null,
             'into'        => $d['into'] ?? null,
+            'catchment'   => (string) ($d['catchment'] ?? 'brisbane'),
             'state'       => $state,
             'why'         => array_values(array_unique($why)),
             'pct'         => $pct,

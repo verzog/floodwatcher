@@ -288,10 +288,12 @@ function sfw_push_send_many(PDO $db, array $subs, array $message, array $opts): 
  * @param string|null $gaugeid Gauge id, or null for a warning.
  * @param float[]|null $point [lat, lon] of the gauge.
  * @param float[]|null $box [S, W, N, E] of a warning's area; null means unknown (matches any area).
- * @param bool $allwarnings True for warnings: also everyone who chose all catchment warnings.
+ * @param bool $allwarnings True for warnings: also everyone who chose all BoM flood warnings for one
+ *     of the warning's catchments ($catchments), or for every catchment.
  * @param array<string, mixed>|null $mask Flood-prone mask (lib/floodmask.php); null to skip that check.
  * @param array<string, mixed>|null $area The warning's or prediction's own flood-prone land, if worked out
  *     (sfw_floodmask_region); a saved area must include some of it.
+ * @param string[]|null $catchments The warning's catchments; null for any.
  * @return array<int, array{sub: array<string, mixed>, prefix: string}>
  */
 function sfw_push_targets(
@@ -301,7 +303,8 @@ function sfw_push_targets(
     ?array $box,
     bool $allwarnings,
     ?array $mask = null,
-    ?array $area = null
+    ?array $area = null,
+    ?array $catchments = null
 ): array
 {
     $out = [];
@@ -332,7 +335,9 @@ function sfw_push_targets(
         }
         $watch = json_decode((string) $s['watch'], true);
         $watching = $gaugeid !== null && is_array($watch) && in_array($gaugeid, $watch, true);
-        $everything = $allwarnings && (int) $s['warnings'] === 1;
+        $mine = (string) ($s['warn_catchment'] ?? 'brisbane');
+        $everything = $allwarnings && (int) $s['warnings'] === 1
+            && ($catchments === null || $mine === 'all' || in_array($mine, $catchments, true));
         if ($names || $watching || $everything) {
             $out[] = ['sub' => $s, 'prefix' => $names ? implode(', ', array_unique($names)) . ': ' : ''];
         }
@@ -374,7 +379,8 @@ function sfw_push_send_targets(PDO $db, array $targets, array $message, array $o
  */
 function sfw_push_dispatch(PDO $db, array $markers, array $alerts, array $cleared, array $warnings, array $opts): int
 {
-    $subs = $db->query('SELECT id, endpoint, p256dh, auth, watch, areas, warnings, predictive FROM push_subscriptions')->fetchAll();
+    $subs = $db->query('SELECT id, endpoint, p256dh, auth, watch, areas, warnings, warn_catchment, predictive
+        FROM push_subscriptions')->fetchAll();
     $state = sfw_state_read('push_sent');
     $first = $state === [];
     $sentgauges = $state['gauges'] ?? [];
@@ -460,7 +466,8 @@ function sfw_push_dispatch(PDO $db, array $markers, array $alerts, array $cleare
         if (($sentwarnings[$w['id']] ?? null) === $w['issued'] || $first) {
             continue;
         }
-        $targets = sfw_push_targets($subs, null, null, $w['bbox'] ?? null, true, $mask, $w['area'] ?? null);
+        $targets = sfw_push_targets($subs, null, null, $w['bbox'] ?? null, true, $mask, $w['area'] ?? null,
+            $w['catchments'] ?? null);
         $delivered += sfw_push_send_targets($db, $targets, [
             'title' => 'BoM: ' . $w['title'],
             'body'  => ($w['headlines'][0] ?? 'New flood warning issued.') . ' Tap to read the warning.',

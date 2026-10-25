@@ -1,7 +1,7 @@
 {
-  "name": "Flood Watcher — Brisbane River catchment",
+  "name": "Flood Watcher — Queensland catchments",
   "short_name": "Flood Watcher",
-  "description": "Community dashboard of rain and river gauges across the Brisbane River catchment. Not an official warning service.",
+  "description": "Community dashboard of rain and river gauges for Queensland catchments, starting with the Brisbane and Mary rivers. Not an official warning service.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

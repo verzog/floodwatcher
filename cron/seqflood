@@ -13,3 +13,7 @@
 17 3 * * 0 my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/fetch_overlays.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
 # Seqwater dam levels and releases every 30 minutes.
 11,41 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/collect_dams.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+# Catchment outlines, weekly (Sunday 3:07 am), plus an hourly check that only downloads them if
+# they've never been downloaded.
+7 3 * * 0 my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/fetch_catchments.php >> /var/www/my_webapp/seqflood/var/collector.log 2>&1
+21 * * * * my_webapp /usr/bin/php8.3 /var/www/my_webapp/seqflood/bin/fetch_catchments.php if-missing >> /var/www/my_webapp/seqflood/var/collector.log 2>&1

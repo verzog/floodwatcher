@@ -18,17 +18,19 @@ declare(strict_types=1);
 const SFW_ARC_SCALE = 100000;
 
 /**
- * Ask a layer for the ids of its shapes (all of them, or those matching $where).
+ * Ask a layer for the ids of its shapes (all of them, or those matching $where), optionally only
+ * those touching a box.
  *
+ * @param float[]|null $box [S, W, N, E] in degrees, or null for anywhere.
  * @return int[]
  */
-function sfw_arc_ids(string $layerurl, string $where = '1=1'): array
+function sfw_arc_ids(string $layerurl, string $where = '1=1', ?array $box = null): array
 {
     $url = rtrim($layerurl, '/') . '/query?' . http_build_query([
         'where'         => $where,
         'returnIdsOnly' => 'true',
         'f'             => 'json',
-    ]);
+    ] + sfw_arc_box_params($box));
     $data = sfw_http_get_json($url);
     if (isset($data['error'])) {
         throw new RuntimeException('Map service error: ' . json_encode($data['error']));
@@ -36,6 +38,54 @@ function sfw_arc_ids(string $layerurl, string $where = '1=1'): array
     $ids = array_map('intval', $data['objectIds'] ?? []);
     sort($ids);
     return $ids;
+}
+
+/**
+ * The query settings that limit a request to shapes touching a box.
+ *
+ * @param float[]|null $box [S, W, N, E] in degrees, or null for no limit.
+ * @return array<string, string|int>
+ */
+function sfw_arc_box_params(?array $box): array
+{
+    if ($box === null) {
+        return [];
+    }
+    [$s, $w, $n, $e] = array_map('floatval', $box);
+    return [
+        'geometry'     => sprintf('%.5f,%.5f,%.5f,%.5f', $w, $s, $e, $n),
+        'geometryType' => 'esriGeometryEnvelope',
+        'inSR'         => 4326,
+        'spatialRel'   => 'esriSpatialRelIntersects',
+    ];
+}
+
+/**
+ * The attributes of a layer's shapes (no shapes), each with its object id under 'objectid'.
+ *
+ * @param float[]|null $box [S, W, N, E] in degrees, or null for anywhere.
+ * @return array<int, array<string, mixed>>
+ */
+function sfw_arc_attributes(string $layerurl, string $where = '1=1', string $fields = '*', ?array $box = null): array
+{
+    $url = rtrim($layerurl, '/') . '/query?' . http_build_query([
+        'where'          => $where,
+        'outFields'      => $fields,
+        'returnGeometry' => 'false',
+        'f'              => 'json',
+    ] + sfw_arc_box_params($box));
+    $data = sfw_http_get_json($url);
+    if (isset($data['error'])) {
+        throw new RuntimeException('Map service error: ' . json_encode($data['error']));
+    }
+    $idfield = (string) ($data['objectIdFieldName'] ?? 'OBJECTID');
+    $out = [];
+    foreach ($data['features'] ?? [] as $f) {
+        $a = is_array($f['attributes'] ?? null) ? $f['attributes'] : [];
+        $id = $a[$idfield] ?? $a['OBJECTID'] ?? $a['objectid'] ?? null;
+        $out[] = $a + ['objectid' => $id === null ? null : (int) $id];
+    }
+    return $out;
 }
 
 /**

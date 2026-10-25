@@ -3,8 +3,8 @@
 // Flood Watcher. Copyright (C) 2026 Vernon Spain. See LICENSE.
 
 /**
- * Collect Queensland Government (WMIP) stream heights, flows and rainfall for the Brisbane
- * basin stations listed in data/qld_sites.csv.
+ * Collect Queensland Government (WMIP) stream heights, flows and rainfall for the stations listed
+ * in data/qld_sites.csv (site id, name, catchment; a missing catchment means the Brisbane River).
  *
  * Usage: php bin/collect_qld.php      (cron: every 30 minutes)
  *
@@ -34,16 +34,19 @@ $offset = (int) $cfg['tz_offset_hours'] * 3600;
 $state = sfw_state_read('qld');
 $recheckseconds = 86400; // Re-check which stations have each measurement once a day.
 
-// Station list.
+// Station list, and each station's catchment.
 $sites = [];
+$catchmentof = [];
 $handle = fopen($cfg['sites_file'], 'r');
 if ($handle === false) {
     sfw_fail('Cannot open ' . $cfg['sites_file']);
 }
 fgetcsv($handle, null, ',', '"', '');
 while (($row = fgetcsv($handle, null, ',', '"', '')) !== false) {
-    if (isset($row[0]) && $row[0] !== '') {
-        $sites[] = strtoupper(trim($row[0]));
+    if (isset($row[0]) && trim($row[0]) !== '' && !str_starts_with(trim($row[0]), '#')) {
+        $site = strtoupper(trim($row[0]));
+        $sites[] = $site;
+        $catchmentof[$site] = trim((string) ($row[2] ?? '')) ?: 'brisbane';
     }
 }
 fclose($handle);
@@ -220,6 +223,7 @@ foreach ($kinds as $suffix => $kind) {
                 'latitude'      => (float) ($details['latitude'] ?? 0),
                 'longitude'     => (float) ($details['longitude'] ?? 0),
                 'tidal'         => $kind['type'] === 'stream' ? 'no' : null,
+                'catchment'     => $catchmentof[$site] ?? 'brisbane',
             ]);
             foreach ($trace['trace'] as $point) {
                 $fetched++;

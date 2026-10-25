@@ -37,21 +37,49 @@ return [
     // Bureau of Meteorology anonymous FTP products.
     'bom' => [
         'base_url'          => 'ftp://ftp.bom.gov.au/anon/gen/fwo/',
-        'river_map'         => 'IDQ65412.html', // Brisbane/Moreton river map: names, positions, flood levels.
-        'rain_map'          => 'IDQ65415.html', // Rain map, past hour: gauge names, positions, past-hour totals.
-        'rain_9am_map'      => 'IDQ65414.html', // Rain map, totals since 9am.
-        'river_group'       => 'IDQ65389',      // BoM's Brisbane/Moreton gauge group on that map.
+        // River map pages (names, positions, flood levels) and rain map pages (names, positions,
+        // past-hour totals; totals since 9am). The first of each is BoM's south-east Queensland map;
+        // add the pages bin/discover_catchment.php finds for other catchments.
+        'river_maps'        => ['IDQ65412.html'],
+        'rain_maps'         => ['IDQ65415.html'],
+        'rain_9am_maps'     => ['IDQ65414.html'],
+        // Brisbane River gauges: BoM's Brisbane/Moreton gauge group, less data/bom_exclude.csv. Gauges
+        // for the other live catchments are those inside the catchment's outline (lib/catchments.php).
+        'river_group'       => 'IDQ65389',
         'exclude_file'      => dirname(__DIR__) . '/data/bom_exclude.csv',
         'tidal_file'        => dirname(__DIR__) . '/data/bom_tidal.csv',
         'metadata_minutes'  => 60,              // Refresh names/levels this often.
         'rain_max_km'       => 15,              // Rain gauge must be this close to an included river gauge.
-        // A BoM flood warning is ours if its title or areas mention any of these (not case-sensitive).
+        // A BoM flood warning belongs to a catchment if its title or areas mention any of these
+        // (not case-sensitive). One warning can belong to several catchments.
         'warning_keywords'  => [
-            'Brisbane River', 'Stanley River', 'Lockyer', 'Laidley', 'Tenthill', 'Ma Ma Creek',
-            'Bremer', 'Warrill', 'Purga', 'Western Creek', 'Bundamba', 'Woogaroo', 'Oxley Creek',
-            'Cressbrook', 'Emu Creek', 'Wivenhoe', 'Somerset Dam', 'Brisbane Metropolitan',
-            'Brisbane Creeks', 'Kedron Brook', 'Enoggera', 'Moggill', 'Breakfast Creek', 'Norman Creek',
-            'Bulimba Creek', 'Wynnum',
+            'brisbane' => [
+                'Brisbane River', 'Stanley River', 'Lockyer', 'Laidley', 'Tenthill', 'Ma Ma Creek',
+                'Bremer', 'Warrill', 'Purga', 'Western Creek', 'Bundamba', 'Woogaroo', 'Oxley Creek',
+                'Cressbrook', 'Emu Creek', 'Wivenhoe', 'Somerset Dam', 'Brisbane Metropolitan',
+                'Brisbane Creeks', 'Kedron Brook', 'Enoggera', 'Moggill', 'Breakfast Creek', 'Norman Creek',
+                'Bulimba Creek', 'Wynnum',
+            ],
+            'mary' => [
+                'Mary River', 'Gympie', 'Maryborough', 'Tiaro', 'Six Mile Creek', 'Yabba Creek', 'Obi Obi',
+                'Kandanga', 'Amamoor', 'Tinana Creek', 'Wide Bay Creek', 'Glastonbury Creek', 'Munna Creek',
+                'Borumba', 'Baroon Pocket', 'Kenilworth', 'Conondale',
+            ],
+        ],
+    ],
+
+    // Catchments. The live ones are shown in full; every other Queensland catchment is listed on the
+    // page as "under construction". 'basin' is the state's drainage basin number (the outline
+    // comes from the state's drainage basins map, bin/fetch_catchments.php).
+    'catchments' => [
+        'default'        => 'brisbane',
+        'basins_url'     => 'https://spatial-gis.information.qld.gov.au/arcgis/rest/services/InlandWaters/'
+            . 'DrainageBasins/MapServer/1',
+        'outline_offset' => 0.0003, // Simplification of the live catchments' outlines (about 30 m).
+        'list_offset'    => 0.003,  // And of the others (about 300 m), to keep the page quick.
+        'live'           => [
+            'brisbane' => ['name' => 'Brisbane River', 'basin' => '143'],
+            'mary'     => ['name' => 'Mary River', 'basin' => '138'],
         ],
     ],
 
@@ -68,8 +96,11 @@ return [
             . 'Flood_Awareness_Flood_Risk_Overall/FeatureServer/0',
         'likelihood_link' => 'https://www.brisbane.qld.gov.au/community-and-safety/community-safety/'
             . 'disasters-and-emergencies/be-prepared/flooding-in-brisbane/flood-awareness-map',
-        // Layers are drawn in this order (later ones on top). Optional per layer: 'where' (which
-        // shapes to take) and 'batch' (shapes per request, for layers with very large shapes).
+        // Layers are drawn in this order (later ones on top). Each belongs to one catchment and is
+        // offered only while that catchment is shown. Optional per layer: 'where' (which shapes to
+        // take), 'box_of' (only shapes touching that catchment's box), 'clip' (then only shapes
+        // centred inside its outline) and 'batch' (shapes per request, for very large shapes).
+        // Catchment outlines come from bin/fetch_catchments.php, not from here.
         'layers' => [
             [
                 'key'    => 'floodplain',
@@ -84,6 +115,24 @@ return [
                 'min_m2' => 2000,
                 'on'     => true,
                 'source' => '© State of Queensland (Department of Resources), FloodCheck Rapid Hazard Assessment',
+                'catchment' => 'brisbane',
+            ],
+            [
+                'key'    => 'floodplain_mary',
+                'label'  => 'Possible floodplain, whole catchment (state, broad-scale)',
+                'hover'  => 'Possible floodplain (state broad-scale map)',
+                'url'    => 'https://spatial-gis.information.qld.gov.au/arcgis/rest/services/FloodCheck/'
+                    . 'RapidHazardAssessment/MapServer/0',
+                // Until the Mary's sub-basin names are checked (bin/discover_catchment.php mary), take
+                // the shapes in the catchment's box and keep those centred inside its outline.
+                'box_of' => 'mary',
+                'clip'   => true,
+                'batch'  => 1,
+                'offset' => 0.0002,
+                'min_m2' => 2000,
+                'on'     => true,
+                'source' => '© State of Queensland (Department of Resources), FloodCheck Rapid Hazard Assessment',
+                'catchment' => 'mary',
             ],
             [
                 'key'    => 'areas',
@@ -95,6 +144,7 @@ return [
                 'min_m2' => 400,
                 'on'     => true,
                 'source' => '© Brisbane City Council, Flood Awareness Map',
+                'catchment' => 'brisbane',
             ],
             [
                 'key'    => 'flood2011',
@@ -106,6 +156,7 @@ return [
                 'min_m2' => 200,
                 'on'     => true,
                 'source' => '© State of Queensland (Queensland Reconstruction Authority)',
+                'catchment' => 'brisbane',
             ],
             [
                 'key'    => 'flood2022',
@@ -117,6 +168,7 @@ return [
                 'min_m2' => 200,
                 'on'     => false,
                 'source' => '© Brisbane City Council',
+                'catchment' => 'brisbane',
             ],
             [
                 'key'    => 'flood1974',
@@ -128,20 +180,7 @@ return [
                 'min_m2' => 200,
                 'on'     => false,
                 'source' => '© Brisbane City Council',
-            ],
-            [
-                'key'    => 'catchment',
-                'label'  => 'Brisbane River catchment boundary',
-                'hover'  => '',
-                'style'  => 'outline', // A line only: no shading, not listed on hover or tap.
-                'url'    => 'https://spatial-gis.information.qld.gov.au/arcgis/rest/services/InlandWaters/'
-                    . 'DrainageBasins/MapServer/1',
-                'where'  => "basin_number = '143'", // Basin 143, Brisbane River.
-                'batch'  => 1,
-                'offset' => 0.0003,
-                'min_m2' => 100000,
-                'on'     => true,
-                'source' => '© State of Queensland (Department of Resources), drainage basins',
+                'catchment' => 'brisbane',
             ],
         ],
     ],
@@ -152,9 +191,15 @@ return [
         // QLDTraffic's shared public key (100 requests a minute shared by everyone). When TMR issues
         // your own key, put it in config.php: 'traffic' => ['api_key' => '...'].
         'api_key'      => '3e83add325cbb69ac4d8e5bf433d770b',
-        'bbox'         => [151.85, -27.95, 153.25, -26.55], // West, south, east, north.
-        // Councils in the Brisbane River catchment (matched against the event's council name).
-        'councils'     => ['Brisbane City', 'Ipswich City', 'Lockyer Valley', 'Somerset', 'Toowoomba', 'Scenic Rim'],
+        // West, south, east, north: the Brisbane River area. Widened to take in the other live
+        // catchments once their outlines are downloaded (bin/fetch_catchments.php).
+        'bbox'         => [151.85, -27.95, 153.25, -26.55],
+        // Councils in each live catchment (matched against the event's council name). An event in
+        // another live catchment is kept only if it's inside that catchment's outline.
+        'councils'     => [
+            'brisbane' => ['Brisbane City', 'Ipswich City', 'Lockyer Valley', 'Somerset', 'Toowoomba', 'Scenic Rim'],
+            'mary'     => ['Gympie', 'Sunshine Coast', 'Noosa', 'Fraser Coast', 'South Burnett'],
+        ],
         'types_all'    => ['Flooding'],          // Always shown.
         'types_closed' => ['Hazard', 'Crash'],   // Shown only when the road is closed.
         'max_points'   => 400,                   // Thin long road lines to about this many points.
@@ -174,8 +219,9 @@ return [
         'daily_limit'     => 1300, // Requests a day, shared by the weekly check and map lookups.
         'per_minute'      => 25,   // The free key allows about 30 a minute.
         'discover_days'   => 7,    // Check which stations are working this often.
-        'grid_step'       => 0.2,  // Degrees between search points across the catchment.
-        'bbox'            => [151.85, -27.95, 153.25, -26.55], // West, south, east, north.
+        'grid_step'       => 0.2,  // Degrees between search points across the live catchments.
+        // West, south, east, north; widened to all the live catchments once their outlines are in.
+        'bbox'            => [151.85, -27.95, 153.25, -26.55],
         'pause_ms'        => 2500, // Between requests during the weekly check.
         'cache_minutes'   => 15,   // Map lookups reuse a station's reading for this long.
         'max_per_view'    => 25,   // At most this many stations looked up per map view.
@@ -242,7 +288,7 @@ return [
 
     // Flood potential rules, worked out from 30 years of state gauge history (see README).
     // Heights use BoM's gauge zero at the same sites (checked against BoM on 22/10/2026).
-    // Dams in the Brisbane River catchment, shown on the map and counted in the "water coming here"
+    // Dams in the live catchments, shown on the map and counted in the "water coming here"
     // score. Status comes from Seqwater's dam levels page (bin/collect_dams.php) and BoM's gauges:
     //   'level'  the lake gauge (live level and trend); 'tail' the gauge just below the dam, if any
     //   (a quick rise there means water is being released); 'fsl' full supply level in m AHD, where
@@ -260,27 +306,45 @@ return [
         'tail_rise_m'    => 0.5,  // Rise below the dam (over 6 hours) that shows water is being let out.
         'list'           => [
             ['key' => 'wivenhoe', 'name' => 'Wivenhoe Dam', 'seqwater' => 'Wivenhoe', 'lat' => -27.3944, 'lon' => 152.6097,
-                'level' => 'B540177-H', 'tail' => 'B540178-H', 'fsl' => null, 'node' => 'B540177-H'],
+                'level' => 'B540177-H', 'tail' => 'B540178-H', 'fsl' => null, 'node' => 'B540177-H', 'catchment' => 'brisbane'],
             ['key' => 'somerset', 'name' => 'Somerset Dam', 'seqwater' => 'Somerset', 'lat' => -27.1169, 'lon' => 152.555,
-                'level' => 'B040820-H', 'tail' => null, 'fsl' => null, 'node' => 'B040820-H', 'into' => 'B540177-H'],
+                'level' => 'B040820-H', 'tail' => null, 'fsl' => null, 'node' => 'B040820-H', 'into' => 'B540177-H',
+                'catchment' => 'brisbane'],
             ['key' => 'cressbrook', 'name' => 'Cressbrook Dam', 'seqwater' => 'Cressbrook', 'lat' => -27.2633,
                 'lon' => 152.2089, 'level' => 'B540750-H', 'tail' => null, 'fsl' => null, 'node' => 'B540750-H',
-                'into' => 'B540177-H'],
+                'into' => 'B540177-H', 'catchment' => 'brisbane'],
             // Atkinson Dam is filled from Buaraba Creek; check: where its overflow reaches the river.
             ['key' => 'atkinson', 'name' => 'Atkinson Dam', 'seqwater' => 'Atkinson', 'lat' => -27.4319, 'lon' => 152.4642,
-                'level' => 'B540547-H', 'tail' => null, 'fsl' => null, 'down' => 'B540182-H'],
+                'level' => 'B540547-H', 'tail' => null, 'fsl' => null, 'down' => 'B540182-H', 'catchment' => 'brisbane'],
             // Moogerah Dam is on Reynolds Creek, which joins Warrill Creek above Kalbar.
             ['key' => 'moogerah', 'name' => 'Moogerah Dam', 'seqwater' => 'Moogerah', 'lat' => -28.0314, 'lon' => 152.55,
-                'level' => 'B540474-H', 'tail' => 'B540513-H', 'fsl' => null, 'down' => 'B540058-H'],
+                'level' => 'B540474-H', 'tail' => 'B540513-H', 'fsl' => null, 'down' => 'B540058-H', 'catchment' => 'brisbane'],
             // Lake Manchester is on Cabbage Tree Creek, which meets the Brisbane River at Mt Crosby.
             ['key' => 'manchester', 'name' => 'Lake Manchester', 'seqwater' => 'Lake Manchester', 'lat' => -27.4883,
-                'lon' => 152.7515, 'level' => 'B540606-H', 'tail' => null, 'fsl' => null, 'down' => 'B540199-H'],
+                'lon' => 152.7515, 'level' => 'B540606-H', 'tail' => null, 'fsl' => null, 'down' => 'B540199-H',
+                'catchment' => 'brisbane'],
+            // Mary River catchment. Borumba Dam is on Yabba Creek, Baroon Pocket on Obi Obi Creek,
+            // Lake Macdonald on Six Mile Creek and Cedar Pocket on Deep Creek near Gympie. All four
+            // spill over an ungated spillway. Lake Macdonald runs at a reduced level during
+            // Seqwater's dam upgrade.
+            ['key' => 'borumba', 'name' => 'Borumba Dam', 'seqwater' => 'Borumba', 'lat' => -26.5078, 'lon' => 152.5828,
+                'level' => 'B540575-H', 'tail' => 'B540514-H', 'fsl' => null, 'node' => 'B540575-H', 'catchment' => 'mary'],
+            ['key' => 'baroon', 'name' => 'Baroon Pocket Dam', 'seqwater' => 'Baroon Pocket', 'lat' => -26.712,
+                'lon' => 152.8804, 'level' => 'B540426-H', 'tail' => null, 'fsl' => null, 'node' => 'B540426-H',
+                'catchment' => 'mary'],
+            ['key' => 'macdonald', 'name' => 'Lake Macdonald', 'seqwater' => 'Lake Macdonald', 'lat' => -26.3814,
+                'lon' => 152.9297, 'level' => 'B540463-H', 'tail' => null, 'fsl' => null, 'node' => 'B540463-H',
+                'catchment' => 'mary'],
+            ['key' => 'cedarpocket', 'name' => 'Cedar Pocket Dam', 'seqwater' => 'Cedar Pocket', 'lat' => -26.2114,
+                'lon' => 152.7927, 'level' => 'B540476-H', 'tail' => 'B540618-H', 'fsl' => null, 'node' => 'B540476-H',
+                'catchment' => 'mary'],
         ],
     ],
 
     'potential' => [
         [
             'key'      => 'lockyer_lower',
+            'catchment' => 'brisbane',
             'name'     => 'lower Lockyer (Rifle Range Rd, Glenore Grove, Lyons Bridge)',
             'place'    => 'Rifle Range Rd',
             'lat'      => -27.4667,

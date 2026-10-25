@@ -3,7 +3,9 @@
 // Flood Watcher. Copyright (C) 2026 Vernon Spain. See LICENSE.
 
 /**
- * Collect flooding and road closure events from QLDTraffic for the Brisbane River catchment.
+ * Collect flooding and road closure events from QLDTraffic for the live catchments. Each event is
+ * tagged with its catchment: the live catchment whose outline it's in, or the Brisbane River for
+ * an event in a Brisbane River council just outside the outline (bayside Brisbane, say).
  *
  * Usage: php bin/collect_traffic.php   (cron runs it every 10 minutes)
  *
@@ -26,6 +28,7 @@ require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/http.php';
 require dirname(__DIR__) . '/lib/store.php';
 require dirname(__DIR__) . '/lib/traffic.php';
+require dirname(__DIR__) . '/lib/catchments.php';
 
 $config = sfw_config();
 $opts = $config['traffic'];
@@ -37,6 +40,14 @@ if (time() < (int) ($state['pause_until'] ?? 0)) {
 }
 $runid = sfw_run_start('traffic');
 $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
+// Councils by catchment (a plain list, from version 0.18 settings, is the Brisbane River's).
+$councils = $opts['councils'] ?? [];
+if (array_is_list($councils)) {
+    $councils = ['brisbane' => $councils];
+}
+$live = sfw_catchments_live($config);
+$councils = array_intersect_key($councils, array_flip($live));
+$bbox = sfw_catchments_extent($config, $opts['bbox']);
 
 try {
     if (trim((string) $opts['api_key']) === '') {
@@ -63,22 +74,31 @@ try {
 
         $road = is_array($p['road_summary'] ?? null) ? $p['road_summary'] : [];
         $council = sfw_traffic_text($road['local_government_area'] ?? '');
-        if ($opts['councils']) {
-            $match = false;
-            foreach ($opts['councils'] as $name) {
+        $candidates = [];
+        foreach ($councils as $catchment => $names) {
+            foreach ((array) $names as $name) {
                 if (stripos($council, (string) $name) !== false) {
-                    $match = true;
+                    $candidates[] = (string) $catchment;
                     break;
                 }
             }
-            if (!$match) {
-                continue;
-            }
+        }
+        if (!$candidates) {
+            continue;
         }
 
         $shapes = sfw_traffic_shapes($f['geometry'] ?? null);
-        if (!sfw_traffic_in_box($shapes, $opts['bbox'])) {
+        if (!sfw_traffic_in_box($shapes, $bbox)) {
             continue;
+        }
+        // Which catchment: the first point inside one of the candidates' outlines.
+        $first = $shapes['points'][0] ?? ($shapes['lines'][0][0] ?? null);
+        $catchment = $first === null ? null : sfw_catchment_at($config, $first[0], $first[1], $candidates);
+        if ($catchment === null) {
+            if (!in_array('brisbane', $candidates, true)) {
+                continue; // In a shared council (Sunshine Coast, say) but outside the catchment.
+            }
+            $catchment = 'brisbane';
         }
         $shapes['lines'] = array_values(array_filter(array_map(
             static fn(array $l): array => sfw_traffic_thin($l, (int) $opts['max_points']),
@@ -102,6 +122,7 @@ try {
             'road_given'  => sfw_traffic_name_ok($roadname . $locality) ? null
                 : trim($roadname . ($locality !== '' ? ', ' . $locality : '')),
             'council'     => $council,
+            'catchment'   => $catchment,
             'description' => sfw_traffic_text($p['description'] ?? ''),
             'advice'      => sfw_traffic_text($p['advice'] ?? ''),
             'information' => sfw_traffic_text($p['information'] ?? ''),
@@ -131,7 +152,7 @@ try {
     sfw_write_atomic("{$outdir}/traffic.json", json_encode($payload, $flags));
     sfw_state_write('traffic', []);
     $closedcount = count(array_filter($events, static fn(array $e): bool => $e['closed']));
-    $message = sprintf('%d events in the catchment (%d road closures) from %d statewide.',
+    $message = sprintf('%d events in our catchments (%d road closures) from %d statewide.',
         count($events), $closedcount, count($features));
     sfw_run_finish($runid, 'ok', count($features), count($events), null, $message);
     sfw_log('QLDTraffic: ' . $message);

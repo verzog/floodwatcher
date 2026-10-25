@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     watch          TEXT          NOT NULL,             -- JSON list of gauge ids.
     areas          TEXT          NULL,                 -- JSON list of {name, s, w, n, e} boxes (0.12).
     warnings       TINYINT(1)    NOT NULL DEFAULT 1,   -- 1 = also send BoM flood warnings.
+    warn_catchment VARCHAR(32)   NOT NULL DEFAULT 'brisbane', -- Which catchment's warnings, or 'all' (0.19).
     predictive     TINYINT(1)    NOT NULL DEFAULT 1,   -- 1 = send predictive flood alerts (0.15).
     created_utc    DATETIME      NOT NULL,
     updated_utc    DATETIME      NOT NULL,

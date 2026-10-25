@@ -11,7 +11,10 @@
  *   data/sensors.json         every map marker with its latest reading, trend, flood class or rain totals
  *   data/series/<ID>.json     each marker's main gauge over the last 3 days, for the graph
  *   data/cameras.json         flood cameras from data/cameras.csv (links to the provider's page)
- *   data/alerts.json          current gauge alerts and BoM flood warnings for the catchment
+ *   data/alerts.json          current gauge alerts and BoM flood warnings for the live catchments
+ *
+ * Everything carries its catchment ('catchment', or 'catchments' for a warning), so the page can
+ * show one catchment at a time.
  *
  * Gauges from different sources at the same spot (e.g. the council's and BoM's Brisbane City
  * gauge) become one marker. The main reading comes from, in order: a BoM gauge with official
@@ -34,6 +37,7 @@ require dirname(__DIR__) . '/lib/potential.php';
 require dirname(__DIR__) . '/lib/floodmask.php';
 require dirname(__DIR__) . '/lib/network.php';
 require dirname(__DIR__) . '/lib/dams.php';
+require dirname(__DIR__) . '/lib/catchments.php';
 
 $config = sfw_config();
 $outdir = $config['public_data_dir'];
@@ -597,6 +601,9 @@ $payload = [
         'trend_minutes'   => $opts['trend_minutes'],
     ],
     'sensors'    => $out,
+    // The live catchments (key, name, box), for the page's catchment chooser.
+    'catchments' => sfw_catchments_payload($config),
+    'default_catchment' => (string) ($config['catchments']['default'] ?? 'brisbane'),
 ];
 
 // The river network for the "Flood event upstream" notice (data/network.csv, data/travel_times.csv).
@@ -633,7 +640,10 @@ if ($camfile !== '' && is_readable($camfile) && ($fh = fopen($camfile, 'r')) !==
         if ($lat === false || $lon === false || !preg_match('#^https://#i', $url)) {
             continue; // Needs a position and a secure link.
         }
+        $camcatchment = trim((string) ($c['catchment'] ?? ''));
         $cameras[] = [
+            'catchment' => $camcatchment !== '' ? $camcatchment
+                : (sfw_catchment_at($config, $lat, $lon) ?? 'brisbane'),
             'name'     => trim($c['name'] ?? ''),
             'provider' => trim($c['provider'] ?? ''),
             'lat'      => $lat,
@@ -653,7 +663,7 @@ foreach ($series as $id => $data) {
 sfw_write_atomic("{$outdir}/sensors.json", json_encode($payload, $flags));
 sfw_write_atomic("{$outdir}/cameras.json", json_encode(['cameras' => $cameras], $flags));
 
-// Alerts: gauge alerts worked out here, plus current BoM flood warnings for the catchment.
+// Alerts: gauge alerts worked out here, plus current BoM flood warnings for the live catchments.
 $potentials = sfw_potential_markers($items, $byid, $now, $config['potential'] ?? []);
 // Keep each prediction's and warning's area to the flood-prone land joined to the gauges it's
 // about (lib/floodmask.php), so separate rivers in the same box are left out. Without the mask
@@ -685,21 +695,26 @@ $warnstate = sfw_state_read('bom_warnings');
 // Link each warning to the gauges on the rivers and creeks it names, so the page can show a
 // warning only when that area is on screen. A warning that names none of ours has no area and
 // is always shown.
+// Only rivers and creeks in the warning's own catchments count (there's a Deep Creek in more than
+// one catchment, for example).
 $waterways = [];
 foreach ($out as $m) {
     if ($m['type'] === 'stream') {
         $ww = sfw_waterway($m['name']);
         if (strlen($ww) >= 6 && preg_match('/\b(river|creek|brook)\b/', $ww)) {
-            $waterways[$ww][] = [$m['lat'], $m['lon']];
+            $waterways[(string) ($m['catchment'] ?? 'brisbane')][$ww][] = [$m['lat'], $m['lon']];
         }
     }
 }
 $warnings = array_map(static function (array $w) use ($waterways, $joined): array {
     $text = strtolower($w['title'] . ' | ' . implode(' | ', $w['areas'] ?? []) . ' | ' . implode(' | ', $w['headlines'] ?? []));
+    $catchments = $w['catchments'] ?? ['brisbane']; // Warnings saved before 0.19 were the Brisbane River's.
     $pts = [];
-    foreach ($waterways as $ww => $coords) {
-        if (preg_match('/\b' . preg_quote($ww, '/') . '\b/', $text)) {
-            $pts = array_merge($pts, $coords);
+    foreach ($catchments as $catchment) {
+        foreach ($waterways[$catchment] ?? [] as $ww => $coords) {
+            if (preg_match('/\b' . preg_quote($ww, '/') . '\b/', $text)) {
+                $pts = array_merge($pts, $coords);
+            }
         }
     }
     $bbox = null;
@@ -717,6 +732,7 @@ $warnings = array_map(static function (array $w) use ($waterways, $joined): arra
         'issued'    => $w['issued'],
         'headlines' => $w['headlines'],
         'url'       => $w['url'],
+        'catchments' => $catchments,
         'bbox'      => $bbox,
         'area'      => $area, // For notifications only; not written to alerts.json (see below).
     ];

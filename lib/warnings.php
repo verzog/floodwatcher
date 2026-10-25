@@ -92,7 +92,7 @@ function sfw_warning_parse_txt(string $text): array
 }
 
 /**
- * True if a warning is about our catchment: any keyword in its title or area names.
+ * True if a warning mentions any of the keywords in its title, area names or key messages.
  *
  * @param array<string, mixed> $w Parsed warning.
  * @param string[] $keywords
@@ -101,9 +101,31 @@ function sfw_warning_is_ours(array $w, array $keywords): bool
 {
     $hay = strtolower(($w['title'] ?? '') . ' | ' . implode(' | ', $w['areas'] ?? []) . ' | ' . implode(' | ', $w['summary'] ?? []));
     foreach ($keywords as $k) {
-        if ($k !== '' && str_contains($hay, strtolower($k))) {
+        if ($k !== '' && str_contains($hay, strtolower((string) $k))) {
             return true;
         }
     }
     return false;
+}
+
+/**
+ * The catchments a warning belongs to: those whose keywords it mentions. The keywords setting is
+ * keyed by catchment; a plain list (settings from version 0.18) counts as the Brisbane River's.
+ *
+ * @param array<string, mixed> $w Parsed warning.
+ * @param array<int|string, mixed> $keywords
+ * @return string[]
+ */
+function sfw_warning_catchments(array $w, array $keywords): array
+{
+    if (array_is_list($keywords)) {
+        $keywords = ['brisbane' => $keywords];
+    }
+    $out = [];
+    foreach ($keywords as $catchment => $list) {
+        if (is_array($list) && sfw_warning_is_ours($w, $list)) {
+            $out[] = (string) $catchment;
+        }
+    }
+    return $out;
 }

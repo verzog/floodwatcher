@@ -1,7 +1,8 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.18.0
+# Flood Watcher (SEQ Flood Watch) — version 0.19.0
 
-A community flood dashboard for the Brisbane River catchment. It collects rainfall and river
-heights from three public sources, stores them, and shows them on a map.
+A community flood dashboard for Queensland catchments, starting with the Brisbane River and the
+Mary River. It collects rainfall and river heights from public sources, stores them, and shows
+them on a map, one catchment at a time.
 
 **Not an official warning service.** Always follow Bureau of Meteorology warnings.
 
@@ -21,6 +22,39 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.19.0: catchments
+
+- **A catchment chooser** in the header. The page shows one catchment at a time: its gauges, dams,
+  road events, cameras, flood maps, predictions and alerts, with its outline. The choice goes in
+  the address (`?c=mary`) and is remembered in the browser. A link to a gauge in another
+  catchment opens that catchment.
+- **The Mary River** is the second live catchment: BoM's gauges inside its outline (Conondale to
+  Fishermans Pocket, Obi Obi, Yabba, Kandanga, Amamoor, Six Mile, Deep, Glastonbury, Wide Bay and
+  Tinana creeks), Borumba, Baroon Pocket, Lake Macdonald and Cedar Pocket dams, BoM warnings that
+  name its rivers, roads in its councils, and the state floodplain map. Its river network
+  (`data/network.csv`) is drafted from gauge positions; the "check" lines need confirming.
+- **Every other Queensland catchment** is listed as "under construction": choosing one shows its
+  outline and a note, with no gauges yet.
+- **Alerts card**: "This catchment" (as before, for the map view) or "All catchments" (every
+  current alert and warning, each labelled with its catchment).
+- **Notifications**: "All BoM flood warnings" is for the catchment on screen when it's ticked
+  (or all catchments). Saved areas and watched gauges work anywhere.
+- **New scripts**: `bin/fetch_catchments.php` downloads every Queensland drainage basin outline
+  (weekly; `if-missing` hourly), and `bin/discover_catchment.php <key>` lists a catchment's BoM
+  pages and gauges, state stations, floodplain map sub-basins, Seqwater dams and councils, to help
+  set it up. Run it once for the Mary: `php bin/discover_catchment.php mary`.
+- **Settings** (lib/defaults.php): new `catchments` section (`live` catchments by state basin
+  number); `bom` now takes lists (`river_maps`, `rain_maps`, `rain_9am_maps`) and
+  `warning_keywords` by catchment; `traffic` `councils` by catchment; each dam, flood map layer
+  and flood potential rule has a `catchment`; `data/qld_sites.csv` has a catchment column. Older
+  settings files (plain lists) still work, as the Brisbane River's.
+- Database: `sql/upgrade_0.19.sql` adds the warnings catchment to push sign-ups (run
+  `bin/migrate.php`).
+
+My Webapp installs: run `bin/migrate.php`, then `bin/fetch_catchments.php`, then
+`bin/fetch_overlays.php if-missing`, and add the two fetch_catchments.php lines from
+cron/seqflood to /etc/cron.d/seqflood.
 
 ## Changes in 0.18.0
 
@@ -111,8 +145,9 @@ What changed:
 | Source | What | How often | Collector |
 |---|---|---|---|
 | Brisbane City Council open data | 98 city rain and creek gauges | every 10 min | `bin/collect_bcc.php` |
-| Bureau of Meteorology (anonymous FTP) | ~156 river gauges with official flood levels, plus rain gauges (hourly totals, plus BoM's current past-hour and since-9am figures), Brisbane River catchment only | every 15 min | `bin/collect_bom.php` |
-| Queensland Government WMIP | 28 Brisbane basin stations: height, flow, rain | every 30 min | `bin/collect_qld.php` |
+| Bureau of Meteorology (anonymous FTP) | River gauges with official flood levels, plus rain gauges (hourly totals, plus BoM's current past-hour and since-9am figures), live catchments only | every 15 min | `bin/collect_bom.php` |
+| Queensland Government WMIP | Stations listed in `data/qld_sites.csv`: height, flow, rain | every 30 min | `bin/collect_qld.php` |
+| State of Queensland drainage basins | Catchment outlines (all of Queensland) | weekly | `bin/fetch_catchments.php` |
 | Brisbane City Council / State of Queensland (FloodCheck, QRA) | Flood map shading | weekly | `bin/fetch_overlays.php` |
 | QLDTraffic (Transport and Main Roads) | Road closures and flooding | every 10 min | `bin/collect_traffic.php` |
 
@@ -122,7 +157,19 @@ any state flow) are listed with it.
 
 Which BoM gauges count as the Brisbane River catchment: BoM's Brisbane/Moreton group, minus the
 Pine, Caboolture, Burpengary and Deception Bay systems listed in `data/bom_exclude.csv`. Brisbane
-city creeks that drain to Moreton Bay are kept. Edit that file to change the boundary.
+city creeks that drain to Moreton Bay are kept. Edit that file to change the boundary. Other live
+catchments (the Mary River) take the BoM gauges inside their outline.
+
+### Adding a catchment
+
+1. Add it to `catchments` → `live` in your settings with its state basin number, and run
+   `bin/fetch_catchments.php` (the log line says which basin name each number matched).
+2. Run `bin/discover_catchment.php <key>` and copy what it finds: BoM pages into `river_maps` /
+   `rain_maps`, state stations into `data/qld_sites.csv`, floodplain sub-basins into a flood map
+   layer, dams into `dams`, councils into `traffic` → `councils`, and river names into
+   `warning_keywords`.
+3. Draft its river network in `data/network.csv`, then run `bin/fetch_overlays.php if-missing`
+   and `bin/build_json.php`.
 
 ## What's in here
 
@@ -132,7 +179,9 @@ city creeks that drain to Moreton Bay are kept. Edit that file to change the bou
 | `bin/build_json.php` | Writes the dashboard's data files (run after each collector) |
 | `bin/fetch_overlays.php` | Downloads the flood map shading (weekly) |
 | `bin/collect_traffic.php` | Road closures and flooding from QLDTraffic |
-| `bin/collect_warnings.php` | Current BoM flood warnings for the catchment |
+| `bin/collect_warnings.php` | Current BoM flood warnings for the live catchments |
+| `bin/fetch_catchments.php`, `lib/catchments.php` | Queensland catchment outlines, and which catchment a place is in |
+| `bin/discover_catchment.php` | Lists a catchment's data sources, to help set it up |
 | `bin/collect_wu.php` | Weekly check of community rain stations (optional, needs your key) |
 | `bin/collect_dams.php`, `lib/dams.php` | Seqwater dam levels and releases, with BoM's lake and tailwater gauges |
 | `www/wu.php` | Looks up community rain for the stations in the map view |
