@@ -30,6 +30,7 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/http.php';
+require dirname(__DIR__) . '/lib/wmip.php';
 require dirname(__DIR__) . '/lib/store.php';
 
 $config = sfw_config();
@@ -75,17 +76,7 @@ function hist_log(string $dir, string $message): void
  */
 function hist_get(string $url, string $site, array $p, int $from, int $to, string $interval, int $offset): ?array
 {
-    $data = sfw_http_post_json($url, [
-        'function' => 'get_ts_traces',
-        'version'  => '2',
-        'params'   => $p + [
-            'site_list'  => $site,
-            'start_time' => gmdate('YmdHis', $from + $offset),
-            'end_time'   => gmdate('YmdHis', $to + $offset),
-            'interval'   => $interval,
-            'multiplier' => '1',
-        ],
-    ]);
+    $data = sfw_wmip_traces($url, $p, $site, $from, $to, $offset, $interval);
     $err = (int) ($data['error_num'] ?? 0);
     if ($err !== 0) {
         $msg = (string) ($data['error_msg'] ?? '');
@@ -99,15 +90,8 @@ function hist_get(string $url, string $site, array $p, int $from, int $to, strin
         if ((int) ($trace['error_num'] ?? 0) !== 0) {
             return null;
         }
-        foreach ($trace['trace'] ?? [] as $pt) {
-            $v = $pt['v'] ?? '';
-            if ($v === '' || !is_numeric($v) || (int) ($pt['q'] ?? 0) === 255) {
-                continue; // 255 = no data for this time.
-            }
-            $local = DateTimeImmutable::createFromFormat('YmdHis', (string) $pt['t'], new DateTimeZone('UTC'));
-            if ($local !== false) {
-                $out[$local->getTimestamp() - $offset] = (float) $v;
-            }
+        foreach (sfw_wmip_points($trace, $offset) as $ts => $v) {
+            $out[$ts] = $v; // A later trace's reading for the same time wins, as before.
         }
     }
     ksort($out);

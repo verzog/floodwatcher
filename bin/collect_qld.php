@@ -26,6 +26,7 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/lib/bootstrap.php';
 require dirname(__DIR__) . '/lib/http.php';
+require dirname(__DIR__) . '/lib/wmip.php';
 require dirname(__DIR__) . '/lib/store.php';
 
 $lock = sfw_lock('collect_qld');
@@ -76,28 +77,6 @@ $flowcandidates = [
 ];
 $flowprobe = (string) ($cfg['flow_probe_site'] ?? '143001C'); // Brisbane River at Savages Crossing.
 
-/**
- * Ask WMIP for one measurement at a list of stations.
- *
- * @param string[]             $sitelist
- * @param array<string, mixed> $params
- * @return array<string, mixed> Decoded response.
- */
-function sfw_qld_request(string $url, array $sitelist, array $params, int $startutc, int $endutc, int $offset): array
-{
-    return sfw_http_post_json($url, [
-        'function' => 'get_ts_traces',
-        'version'  => '2',
-        'params'   => $params + [
-            'site_list'  => implode(',', $sitelist),
-            'start_time' => gmdate('YmdHis', $startutc + $offset),
-            'end_time'   => gmdate('YmdHis', $endutc + $offset),
-            'interval'   => 'hour',
-            'multiplier' => '1',
-        ],
-    ]);
-}
-
 $db = sfw_db();
 $runid = sfw_run_start('qld');
 $fetched = 0;
@@ -128,7 +107,7 @@ foreach ($kinds as $suffix => $kind) {
             if (!array_key_exists('flow_params', $state) || time() - $checkedf >= $recheckseconds) {
                 $state['flow_params'] = null;
                 foreach ($flowcandidates as $candidate) {
-                    $probe = sfw_qld_request($cfg['url'], [$flowprobe], $candidate, time() - 12 * 3600, $endutc, $offset);
+                    $probe = sfw_wmip_traces($cfg['url'], $candidate, $flowprobe, time() - 12 * 3600, $endutc, $offset);
                     $ptrace = $probe['return']['traces'][0]['trace'] ?? [];
                     if ((int) ($probe['error_num'] ?? 0) === 0 && $ptrace !== []) {
                         $state['flow_params'] = $candidate;
@@ -160,7 +139,7 @@ foreach ($kinds as $suffix => $kind) {
         $rechecked = false;
         if (is_array($known) && time() - $checkedat < $recheckseconds) {
             if ($known !== []) {
-                $data = sfw_qld_request($cfg['url'], $known, $params, $startutc, $endutc, $offset);
+                $data = sfw_wmip_traces($cfg['url'], $params, implode(',', $known), $startutc, $endutc, $offset);
                 if ((int) ($data['error_num'] ?? 0) === 0) {
                     $traces = $data['return']['traces'] ?? [];
                 } else {
@@ -173,7 +152,7 @@ foreach ($kinds as $suffix => $kind) {
 
         if ($known === null) {
             // First try all stations at once; if WMIP rejects that, ask one station at a time.
-            $data = sfw_qld_request($cfg['url'], $sites, $params, $startutc, $endutc, $offset);
+            $data = sfw_wmip_traces($cfg['url'], $params, implode(',', $sites), $startutc, $endutc, $offset);
             if ((int) ($data['error_num'] ?? 0) === 0) {
                 $traces = $data['return']['traces'] ?? [];
                 $capable = [];
@@ -187,7 +166,7 @@ foreach ($kinds as $suffix => $kind) {
                 $skipped = [];
                 foreach ($sites as $site) {
                     try {
-                        $one = sfw_qld_request($cfg['url'], [$site], $params, $startutc, $endutc, $offset);
+                        $one = sfw_wmip_traces($cfg['url'], $params, $site, $startutc, $endutc, $offset);
                     } catch (Throwable $e) {
                         // One station can time out (WMIP returns HTTP 408, "client took too long");
                         // skip it and carry on rather than failing the whole recheck (lesson 5). If
@@ -243,19 +222,10 @@ foreach ($kinds as $suffix => $kind) {
                 'tidal'         => $kind['type'] === 'stream' ? 'no' : null,
                 'catchment'     => $catchmentof[$site] ?? 'brisbane',
             ]);
-            foreach ($trace['trace'] as $point) {
-                $fetched++;
-                $value = $point['v'] ?? '';
-                // Quality 255 means "no data" in Hydstra; skip blanks and non-numbers too.
-                if ($value === '' || !is_numeric($value) || (int) ($point['q'] ?? 0) === 255) {
-                    continue;
-                }
-                $local = DateTimeImmutable::createFromFormat('YmdHis', (string) $point['t'], new DateTimeZone('UTC'));
-                if ($local === false) {
-                    continue;
-                }
-                $utc = gmdate('Y-m-d H:i:s', $local->getTimestamp() - $offset);
-                $inserted += sfw_insert_reading($sensorid, $utc, (float) $value);
+            $fetched += count($trace['trace']);
+            foreach (sfw_wmip_points($trace, $offset) as $ts => $value) {
+                $utc = gmdate('Y-m-d H:i:s', $ts);
+                $inserted += sfw_insert_reading($sensorid, $utc, $value);
                 if ($newest === null || $utc > $newest) {
                     $newest = $utc;
                 }

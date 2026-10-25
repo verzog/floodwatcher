@@ -2,7 +2,7 @@
 
 Read this first. It covers what the project is, how it fits together, how to release and deploy,
 how to add a catchment, and the mistakes already made so they aren't made again.
-Last updated 25/10/2026, at version 0.19.7.
+Last updated 25/10/2026, at version 0.19.8.
 
 ## 1. The project and the person
 
@@ -84,7 +84,9 @@ reading and run-log helpers), `http.php` (HTTP/FTP), `defaults.php` (**every set
 comments), `catchments.php` (outlines, which catchment a point is in), `bom.php`, `warnings.php`,
 `alerts.php` (gauge alerts; it consumes the spike-doubt flag, which is computed in
 `build_json.php`), `potential.php` (prediction rules), `network.php` (river network),
-`dams.php`, `floodmask.php`, `push.php`, `traffic.php`, `arcgis.php`, `wu.php`.
+`dams.php`, `floodmask.php`, `push.php`, `traffic.php`, `arcgis.php`,
+`wmip.php` (Queensland WMIP water-service request + reading helpers, shared by `collect_qld.php`,
+`discover_catchment.php` and `history_fetch.php`), `wu.php`.
 
 Data files (`data/`): `network.csv` (which gauge flows into which; `dam` flag when the downstream
 gauge is a dam lake; "check" notes for unconfirmed joins), `travel_times.csv` (measured peak

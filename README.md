@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.19.7
+# Flood Watcher (SEQ Flood Watch) — version 0.19.8
 
 A community flood dashboard for Queensland catchments, starting with the Brisbane River and the
 Mary River. It collects rainfall and river heights from public sources, stores them, and shows
@@ -22,6 +22,14 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.19.8
+
+- Internal only: the three scripts that read the Queensland water service (WMIP) — the collector,
+  the catchment discovery tool and the history downloader — now share one piece of code for making
+  a request and for reading each measurement, instead of three near-identical copies. Nothing
+  changes in what's collected or shown; it keeps the behaviour (including the timeout handling added
+  in 0.19.7) identical across all three, so a future fix can't drift between them.
 
 ## Changes in 0.19.7
 
