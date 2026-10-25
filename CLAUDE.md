@@ -2,7 +2,7 @@
 
 Read this first. It covers what the project is, how it fits together, how to release and deploy,
 how to add a catchment, and the mistakes already made so they aren't made again.
-Last updated 25/10/2026, at version 0.19.8.
+Last updated 25/10/2026, at version 0.19.9.
 
 ## 1. The project and the person
 
