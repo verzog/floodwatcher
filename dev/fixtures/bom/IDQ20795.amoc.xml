@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<amoc version="1.7"><identifier>IDQ20795</identifier><issue-time-utc>2026-10-22T04:01:00Z</issue-time-utc><expiry-time>2026-10-23T07:01:00Z</expiry-time><status>O</status><service>HFW</service><phase>NEW</phase>
+<hazard index="1" parent-aac="QLD_RC021" severity="UNK"><area-list><area description="Maroochy River" type="river-basin"/></area-list><headline>Flood Warning for Maroochy River</headline></hazard>
+</amoc>

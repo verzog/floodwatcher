@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<amoc version="1.7"><identifier>IDQ20800</identifier><issue-time-utc>2026-10-22T05:25:54Z</issue-time-utc><expiry-time>2026-10-23T08:25:54Z</expiry-time><status>O</status><service>HFW</service><phase>NEW</phase>
+<hazard index="1" parent-aac="QLD_RC022" severity="MIN"><area-list><area aac="QLD_RC093" description="Stanley River to Somerset Dam" type="river-basin"/><area aac="QLD_RS018" description="Stanley River at Woodford" type="river-site"/></area-list><headline>Minor Flood Warning for Stanley River to Somerset Dam and Stanley River at Woodford</headline></hazard>
+</amoc>

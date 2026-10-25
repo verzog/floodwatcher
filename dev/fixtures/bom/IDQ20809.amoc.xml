@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<amoc version="1.7"><identifier>IDQ20809</identifier><issue-time-utc>2026-10-22T18:29:00Z</issue-time-utc><expiry-time>2026-10-23T21:29:00Z</expiry-time><status>O</status><service>HFW</service><phase>NEW</phase>
+<hazard index="1" parent-aac="QLD_RC022" severity="MAJ"><area-list><area description="Warrill Creek" type="river-basin"/></area-list><headline>Major Flood Warning for Warrill Creek</headline></hazard><hazard index="2" parent-aac="QLD_RC022" severity="MIN"><area-list><area description="Bremer River" type="river-basin"/></area-list><headline>Minor Flood Warning for Bremer River</headline></hazard>
+</amoc>

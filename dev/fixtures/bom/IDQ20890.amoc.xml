@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<amoc version="1.7"><identifier>IDQ20890</identifier><issue-time-utc>2026-10-20T00:00:00Z</issue-time-utc><expiry-time>2026-10-21T00:00:00Z</expiry-time><status>O</status><service>HFW</service><phase>NEW</phase>
+<hazard index="1" parent-aac="QLD_RC022" severity="MIN"><area-list><area description="Lockyer Creek" type="river-basin"/></area-list><headline>Old Lockyer warning</headline></hazard>
+</amoc>

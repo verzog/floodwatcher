@@ -250,6 +250,8 @@ catchments (the Mary River) take the BoM gauges inside their outline.
 | `www/` | The dashboard page — copied into My Webapp's public `www` folder |
 | `cron/seqflood` | Ready-made schedule — copied to `/etc/cron.d/` |
 | `config.example.php` | Settings template — copy to `config.php` (database password only) |
+| `CLAUDE.md` | Briefing for developers (and AI coding assistants): how it fits together, releasing, adding a catchment, lessons learned |
+| `dev/` | Mock services, saved real pages and scripts for testing without the real services; history analysis scripts |
 
 ## Upgrading from 0.16 to 0.16.1: fixes to the flood-prone shading, and odd road names
 
