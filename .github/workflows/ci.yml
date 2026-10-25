@@ -35,6 +35,60 @@ jobs:
       - name: Page script syntax
         run: node --check www/app.js && node --check www/sw.js
 
+  smoke:
+    # Run the whole collector pipeline against the dev mocks and check the dashboard JSON builds.
+    # This exercises the code against saved copies of the real services, so a change that breaks
+    # the pipeline fails here instead of only on the live server.
+    runs-on: ubuntu-latest
+    env:
+      FW_DB_HOST: 127.0.0.1
+      FW_DB_USER: root
+      FW_DB_PASSWORD: root
+      FW_DB_NAME: floodwatcher_test
+      FW_TEST_DIR: ${{ runner.temp }}/fw-test
+      SFW_CONFIG: ${{ github.workspace }}/dev/config.test.php
+      SFW_CODE_DIR: ${{ github.workspace }}
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: floodwatcher_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, mbstring, xml, pdo_mysql, openssl
+          coverage: none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install pyftpdlib (for the BoM FTP mock)
+        run: pip install pyftpdlib
+      - name: Run the pipeline against the mocks and check the output
+        run: |
+          sh dev/start.sh
+          php bin/migrate.php
+          php bin/import_sensors.php
+          php bin/fetch_catchments.php
+          php bin/collect_bcc.php
+          php bin/collect_bom.php refresh
+          php bin/collect_qld.php
+          php bin/collect_warnings.php
+          php bin/collect_traffic.php
+          php bin/collect_dams.php
+          php bin/fetch_overlays.php
+          php bin/build_json.php
+          php dev/check_outputs.php
+
   version:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
