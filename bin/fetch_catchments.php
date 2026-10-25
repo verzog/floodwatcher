@@ -76,11 +76,12 @@ try {
     if ($numfield === null || $namefield === null) {
         throw new RuntimeException('no basin number or name field (fields: ' . implode(', ', $fields) . ')');
     }
-    // The number and name of every basin. This service refuses some requests ("Error performing
-    // query operation"): asking for every field, or for the shape ids, with a filter. Asking for
-    // just these two fields works, and so does finding a basin's shapes by its number (below).
-    $rows = sfw_arc_attributes($url, '1=1', "{$numfield},{$namefield}");
-    if (!$rows) {
+    // This service refuses any query with a filter, or asking for the shape id field ("Error
+    // performing query operation"; checked on 25/10/2026). What works: every shape's id, then the
+    // shapes by id with the basin number and name. So: all ids; every shape simplified, a few at
+    // a time, with its number and name; then the live catchments' shapes again in more detail.
+    $ids = sfw_arc_ids($url);
+    if (!$ids) {
         throw new RuntimeException('the map service returned no drainage basins');
     }
 
@@ -90,24 +91,47 @@ try {
         $livebybasin[(string) $c['basin']] = (string) $key;
     }
 
-    // One entry per basin (a basin can be several shapes, such as islands), then its shapes' ids.
-    $basins = [];
-    foreach ($rows as $r) {
-        $num = trim((string) ($r[$numfield] ?? ''));
-        if ($num !== '' && preg_match('/^[A-Za-z0-9]{1,10}$/', $num)) {
-            $basins[$num]['name'] ??= sfw_basin_name((string) ($r[$namefield] ?? $num));
-        }
-    }
-    foreach (array_keys($basins) as $num) {
-        $num = (string) $num;
+    $basins = [];     // Basin number => name, packed shapes.
+    $livechunks = []; // Requests that included a live catchment's shape, to fetch again in detail.
+    $fieldlist = "{$numfield},{$namefield}";
+    $fetch = static function (array $chunk, float $offset) use ($url, $fieldlist): array {
         try {
-            $basins[$num]['ids'] = sfw_arc_ids($url, "{$numfield} = '{$num}'");
+            return sfw_arc_features($url, $chunk, $offset, $fieldlist);
         } catch (Throwable $e) {
-            throw new RuntimeException("shapes of {$basins[$num]['name']} (basin {$num}): " . $e->getMessage(), 0, $e);
+            throw new RuntimeException('shapes ' . implode(', ', $chunk) . ': ' . $e->getMessage(), 0, $e);
+        }
+    };
+    foreach (sfw_arc_chunks($ids, 5) as $chunk) {
+        foreach ($fetch($chunk, (float) $cfg['list_offset']) as $f) {
+            $num = trim((string) ($f['attributes'][$numfield] ?? ''));
+            if ($num === '' || !preg_match('/^[A-Za-z0-9]{1,10}$/', $num)) {
+                continue;
+            }
+            $basins[$num]['name'] ??= sfw_basin_name((string) ($f['attributes'][$namefield] ?? $num));
+            $basins[$num]['f'] ??= [];
+            if (isset($livebybasin[$num])) {
+                $livechunks[implode(',', $chunk)] = $chunk;
+                continue; // Fetched again in detail below.
+            }
+            $p = sfw_arc_pack($f['geometry'] ?? [], 2000000); // Leave out tiny islands.
+            if ($p !== null) {
+                $basins[$num]['f'][] = $p;
+            }
+        }
+        usleep(200000); // Be gentle with the map server.
+    }
+    foreach ($livechunks as $chunk) {
+        foreach ($fetch($chunk, (float) $cfg['outline_offset']) as $f) {
+            $num = trim((string) ($f['attributes'][$numfield] ?? ''));
+            if (isset($livebybasin[$num])) {
+                $p = sfw_arc_pack($f['geometry'] ?? [], 100000);
+                if ($p !== null) {
+                    $basins[$num]['f'][] = $p;
+                }
+            }
         }
         usleep(200000);
     }
-    $basins = array_filter($basins, static fn(array $b): bool => !empty($b['ids']));
 
     $out = [];
     $foundlive = [];
@@ -115,23 +139,7 @@ try {
         $num = (string) $num;
         $key = $livebybasin[$num] ?? 'b' . preg_replace('/[^a-z0-9]/', '', strtolower($num));
         $live = isset($livebybasin[$num]);
-        $offset = (float) ($live ? $cfg['outline_offset'] : $cfg['list_offset']);
-        $minm2 = (float) ($live ? 100000 : 2000000); // Leave out tiny islands from the simple outlines.
-        $packed = [];
-        foreach (sfw_arc_chunks($b['ids'], $live ? 1 : 5) as $chunk) {
-            try {
-                $got = sfw_arc_features($url, $chunk, $offset);
-            } catch (Throwable $e) {
-                throw new RuntimeException("outline of {$b['name']} (basin {$num}): " . $e->getMessage(), 0, $e);
-            }
-            foreach ($got as $f) {
-                $p = sfw_arc_pack($f['geometry'] ?? [], $minm2);
-                if ($p !== null) {
-                    $packed[] = $p;
-                }
-            }
-            usleep(200000); // Be gentle with the map server.
-        }
+        $packed = $b['f'];
         if (!$packed) {
             continue;
         }
@@ -184,7 +192,7 @@ try {
     if ($missing) {
         $message .= '; not found on the state map (check their basin numbers): ' . implode(', ', $missing);
     }
-    sfw_run_finish($runid, $missing ? 'error' : 'ok', count($rows), count($out), null, $message);
+    sfw_run_finish($runid, $missing ? 'error' : 'ok', count($ids), count($out), null, $message);
     sfw_log('Catchments: ' . $message . '.');
 } catch (Throwable $e) {
     sfw_run_finish($runid, 'error', 0, 0, null, $e->getMessage());

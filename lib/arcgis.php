@@ -141,16 +141,17 @@ function sfw_arc_chunks(array $ids, int $max, int $maxchars = 1200): array
 }
 
 /**
- * Download the shapes with the given ids, simplified, in longitude/latitude.
+ * Download the shapes with the given ids, simplified, in longitude/latitude, with the given
+ * fields (none by default).
  *
  * @param int[] $ids
  * @return array<int, mixed> Esri JSON features.
  */
-function sfw_arc_features(string $layerurl, array $ids, float $offset): array
+function sfw_arc_features(string $layerurl, array $ids, float $offset, string $fields = ''): array
 {
     $url = rtrim($layerurl, '/') . '/query?' . http_build_query([
         'objectIds'          => implode(',', $ids),
-        'outFields'          => '',
+        'outFields'          => $fields,
         'returnGeometry'     => 'true',
         'outSR'              => 4326,
         'maxAllowableOffset' => $offset,

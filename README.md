@@ -1,4 +1,4 @@
-# Flood Watcher (SEQ Flood Watch) — version 0.19.2
+# Flood Watcher (SEQ Flood Watch) — version 0.19.3
 
 A community flood dashboard for Queensland catchments, starting with the Brisbane River and the
 Mary River. It collects rainfall and river heights from public sources, stores them, and shows
@@ -22,6 +22,12 @@ Moving an existing My Webapp install across: see
 in the package.
 
 The rest of this file covers the older manual set-up in My Webapp.
+
+## Changes in 0.19.3
+
+- `bin/fetch_catchments.php` again: the state's drainage basins service refuses any filtered
+  query (by basin number too). It now takes every shape's id, then downloads the shapes by id
+  with their basin number and name, and fetches the live catchments again in more detail.
 
 ## Changes in 0.19.2
 
