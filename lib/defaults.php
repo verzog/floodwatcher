@@ -40,7 +40,8 @@ return [
         // River map pages (names, positions, flood levels) and rain map pages (names, positions,
         // past-hour totals; totals since 9am). The first of each is BoM's south-east Queensland map;
         // add the pages bin/discover_catchment.php finds for other catchments.
-        'river_maps'        => ['IDQ65412.html'],
+        // IDQ65420: the Wide Bay and Burnett map, with the whole Mary River (checked 25/10/2026).
+        'river_maps'        => ['IDQ65412.html', 'IDQ65420.html'],
         'rain_maps'         => ['IDQ65415.html'],
         'rain_9am_maps'     => ['IDQ65414.html'],
         // Brisbane River gauges: BoM's Brisbane/Moreton gauge group, less data/bom_exclude.csv. Gauges
@@ -123,10 +124,8 @@ return [
                 'hover'  => 'Possible floodplain (state broad-scale map)',
                 'url'    => 'https://spatial-gis.information.qld.gov.au/arcgis/rest/services/FloodCheck/'
                     . 'RapidHazardAssessment/MapServer/0',
-                // Until the Mary's sub-basin names are checked (bin/discover_catchment.php mary), take
-                // the shapes in the catchment's box and keep those centred inside its outline.
-                'box_of' => 'mary',
-                'clip'   => true,
+                // The Mary's sub-basins in this layer (bin/discover_catchment.php mary, 25/10/2026).
+                'where'  => "sub_name IN ('Upper Mary River','Lower Mary River')",
                 'batch'  => 1,
                 'offset' => 0.0002,
                 'min_m2' => 2000,

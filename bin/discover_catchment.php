@@ -78,14 +78,16 @@ try {
         if ($rv) {
             $groups = array_count_values(array_map(static fn(array $g): string => (string) $g['group'], $rv));
             $riverpages[] = $page;
-            $say(sprintf('   %s: %d river gauges inside (BoM groups: %s)', $page, count($rv), implode(', ', array_map(
+            $title = preg_match('#<title>\s*([^<]{1,120})#i', $html, $tm) ? ' "' . trim($tm[1]) . '"' : '';
+            $say(sprintf('   %s%s: %d river gauges inside (BoM groups: %s)', $page, $title, count($rv), implode(', ', array_map(
                 static fn(string $g, int $n): string => "{$g} {$n}", array_keys($groups), $groups))));
             foreach ($rv as $g) {
                 $gauges[$g['id']] ??= $g + ['page' => $page];
             }
         } elseif ($rn) {
             $rainpages[] = $page;
-            $say(sprintf('   %s: %d rain gauges inside', $page, count($rn)));
+            $title = preg_match('#<title>\s*([^<]{1,120})#i', $html, $tm) ? ' "' . trim($tm[1]) . '"' : '';
+            $say(sprintf('   %s%s: %d rain gauges inside', $page, $title, count($rn)));
             foreach ($rn as $g) {
                 $rain[$g['id']] ??= $g + ['page' => $page];
             }
@@ -93,13 +95,13 @@ try {
         usleep(200000);
     }
     $say();
-    $say('   River gauges (BoM id, name, flood levels minor/moderate/major, page):');
+    $say('   River gauges (BoM id, name, flood levels minor/moderate/major, latitude, longitude, page):');
     uasort($gauges, static fn(array $a, array $b): int => strcmp($a['name'], $b['name']));
     foreach ($gauges as $g) {
         $fmt = static fn(?float $v): string => $v === null ? '–' : sprintf('%.2f', $v);
         $lv = $g['minor'] === null ? 'no flood levels'
             : $fmt($g['minor']) . ' / ' . $fmt($g['moderate']) . ' / ' . $fmt($g['major']);
-        $say(sprintf('   B%s-H  %-48s %-22s %s', $g['id'], $g['name'], $lv, $g['page']));
+        $say(sprintf('   B%s-H  %-48s %-22s %9.4f %9.4f  %s', $g['id'], $g['name'], $lv, $g['lat'], $g['lon'], $g['page']));
     }
     $say(sprintf('   Rain gauges inside: %d', count($rain) ?: count(array_filter(
         sfw_bom_parse_rain_map(sfw_fetch_raw($base . $config['bom']['rain_maps'][0])),
@@ -134,14 +136,26 @@ try {
     ))));
     $say('   ' . count($sites) . ' stations in basin ' . $c['basin'] . '; checking which report heights…');
     $found = 0;
+    // One station at a time (the service rejects a whole request if any station in it has no
+    // heights). A station the service times out on is noted and skipped.
+    $failed = [];
     foreach (array_chunk($sites, 20) as $chunk) {
         foreach ($chunk as $site) {
-            $data = sfw_http_post_json($qurl, ['function' => 'get_ts_traces', 'version' => '2', 'params' => [
-                'site_list' => $site, 'datasource' => 'AT', 'varfrom' => '100.00', 'varto' => '100.00',
-                'data_type' => 'point', 'interval' => 'hour', 'multiplier' => '1',
-                'start_time' => gmdate('YmdHis', time() - 7 * 86400 + $offset),
-                'end_time' => gmdate('YmdHis', time() + $offset),
-            ]]);
+            try {
+                $data = sfw_http_post_json($qurl, ['function' => 'get_ts_traces', 'version' => '2', 'params' => [
+                    'site_list' => $site, 'datasource' => 'AT', 'varfrom' => '100.00', 'varto' => '100.00',
+                    'data_type' => 'point', 'interval' => 'hour', 'multiplier' => '1',
+                    'start_time' => gmdate('YmdHis', time() - 7 * 86400 + $offset),
+                    'end_time' => gmdate('YmdHis', time() + $offset),
+                ]]);
+            } catch (Throwable $e) {
+                $failed[] = $site;
+                if (count($failed) >= 15) {
+                    throw new RuntimeException('too many stations failed (last: ' . $e->getMessage() . ')');
+                }
+                sleep(2);
+                continue;
+            }
             foreach ((int) ($data['error_num'] ?? 1) === 0 ? $data['return']['traces'] ?? [] : [] as $t) {
                 if ((int) ($t['error_num'] ?? 0) !== 0 || empty($t['trace'])) {
                     continue;
@@ -156,6 +170,9 @@ try {
     }
     if (!$found) {
         $say('   None found.');
+    }
+    if ($failed) {
+        $say('   The service didn\'t answer for: ' . implode(', ', $failed));
     }
 } catch (Throwable $e) {
     $say('   State service unavailable or didn\'t understand the station search: ' . $e->getMessage());

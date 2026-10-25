@@ -27,4 +27,14 @@ site_id,name,catchment
 143312A,Kilcoy Ck at d/s Kilcoy Weir,brisbane
 143901A,Stanley River at Woodford,brisbane
 143921A,Cressbrook Creek at Rosentreters Crossing,brisbane
-# Mary River stations: run bin/discover_catchment.php mary on the server and add the lines it prints here.
+# Mary River stations with river heights (bin/discover_catchment.php mary, 25/10/2026; the list
+# stopped part way, so more may follow).
+138001A,Mary River at Miva,mary
+138002C,Wide Bay Creek at Brooyar,mary
+138003D,Glastonbury Creek at Glastonbury,mary
+138004B,Munna Creek at Marodian,mary
+138007A,Mary River at Fishermans Pocket,mary
+138009A,Tinana Creek at Tagigan Road,mary
+138010A,Wide Bay Creek at Kilkivan,mary
+138014A,Mary River at Home Park,mary
+138102C,Amamoor Creek at Zachariah,mary

@@ -6,7 +6,8 @@
  * Collect Bureau of Meteorology river heights and rainfall for the live catchments (Brisbane River,
  * Mary River, ...), from BoM's anonymous FTP service.
  *
- * Usage: php bin/collect_bom.php      (cron: every 15 minutes)
+ * Usage: php bin/collect_bom.php           (cron: every 15 minutes)
+ *        php bin/collect_bom.php refresh   (also re-read the gauge list now, after changing settings)
  *
  * Each run:
  *  1. About hourly, refreshes the gauge list from BoM's map pages ('river_maps', 'rain_maps'):
@@ -109,7 +110,8 @@ try {
     // ---------- 1. Gauge list (names, positions, flood levels) ----------
     $hasgauges = (int) $db->query("SELECT COUNT(*) FROM sensors WHERE source = 'bom' AND active = 1")->fetchColumn();
     $metaage = time() - (int) ($state['meta_time'] ?? 0);
-    if ($hasgauges === 0 || $metaage > (int) $cfg['metadata_minutes'] * 60) {
+    $force = in_array('refresh', $argv ?? [], true);
+    if ($force || $hasgauges === 0 || $metaage > (int) $cfg['metadata_minutes'] * 60) {
         $exclude = sfw_csv_map($cfg['exclude_file']);
         $tidal = sfw_csv_map($cfg['tidal_file']);
         $river = sfw_bom_read_pages($base, sfw_bom_pages($cfg, 'river_maps', 'river_map'), 'sfw_bom_parse_river_map', $notes);
