@@ -342,6 +342,7 @@ foreach ($sensors as $s) {
 // neighbour, it's believed once 'spike_confirm' more readings have stayed near the new level.
 // Otherwise it's probably a faulty reading: shown with a "?", and no alert.
 $spikekm = (float) ($config['alerts']['spike_km'] ?? 25);
+$spikeback = (float) ($config['alerts']['spike_backing_m'] ?? 0.3);
 foreach ($items as $id => $it) {
     $jump = $it['jump'] ?? null;
     unset($items[$id]['jump']);
@@ -358,7 +359,7 @@ foreach ($items as $id => $it) {
             continue;
         }
         $neighbours++;
-        if (sfw_rise_around($byid[$oid] ?? [], $jump['t']) >= 0.3) {
+        if (sfw_rise_around($byid[$oid] ?? [], $jump['t']) >= $spikeback) {
             $backed = true;
             break;
         }

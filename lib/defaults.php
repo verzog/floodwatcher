@@ -394,6 +394,7 @@ return [
         'spike_minutes' => 90,
         'spike_km'      => 25,
         'spike_confirm' => 2,
+        'spike_backing_m' => 0.3, // A same-river neighbour must have risen at least this much to back a jump.
     ],
 
     'dashboard' => [
